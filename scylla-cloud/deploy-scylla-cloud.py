@@ -97,6 +97,87 @@ class ScyllaCloudClient:
         response = requests.get(url, headers=self.headers)
         response.raise_for_status()
         return response.json()
+    
+    def get_cloud_providers(self) -> Dict[str, Any]:
+        """Get list of cloud providers."""
+        url = f"{API_BASE_URL}/deployment/cloud-providers"
+        response = requests.get(url, headers=self.headers)
+        response.raise_for_status()
+        return response.json()
+    
+    def get_cloud_provider_regions(self, cloud_provider_id: int) -> Dict[str, Any]:
+        """Get list of regions for a cloud provider."""
+        url = f"{API_BASE_URL}/deployment/cloud-provider/{cloud_provider_id}/regions"
+        response = requests.get(url, headers=self.headers)
+        response.raise_for_status()
+        return response.json()
+    
+    def get_cloud_provider_region(self, cloud_provider_id: int, region_id: int) -> Dict[str, Any]:
+        """Get region details including instance types."""
+        url = f"{API_BASE_URL}/deployment/cloud-provider/{cloud_provider_id}/region/{region_id}"
+        response = requests.get(url, headers=self.headers)
+        response.raise_for_status()
+        return response.json()
+    
+    def lookup_cloud_provider_id(self, provider_name: str) -> int:
+        """Look up cloud provider ID by name (AWS or GCP)."""
+        response = self.get_cloud_providers()
+        # Handle nested response structure
+        if isinstance(response, dict):
+            # Extract from nested structure: {"data": {"cloudProviders": [...]}}
+            if 'data' in response:
+                data = response['data']
+                providers = data.get('cloudProviders', data.get('providers', []))
+            else:
+                providers = response.get('cloudProviders') or response.get('providers') or []
+        else:
+            providers = response
+        
+        for provider in providers:
+            if isinstance(provider, dict) and provider.get('name', '').upper() == provider_name.upper():
+                return provider['id']
+        raise ValueError(f"Cloud provider '{provider_name}' not found")
+    
+    def lookup_region_id(self, cloud_provider_id: int, region_name: str) -> int:
+        """Look up region ID by name."""
+        response = self.get_cloud_provider_regions(cloud_provider_id)
+        # Handle nested response structure
+        if isinstance(response, dict):
+            # Extract from nested structure: {"data": {"regions": [...]}}
+            if 'data' in response:
+                data = response['data']
+                regions = data.get('regions') or data.get('cloudProviderRegions') or []
+            else:
+                regions = response.get('regions') or response.get('cloudProviderRegions') or []
+        else:
+            regions = response
+        
+        for region in regions:
+            if isinstance(region, dict) and region.get('name') == region_name:
+                return region['id']
+        raise ValueError(f"Region '{region_name}' not found for cloud provider ID {cloud_provider_id}")
+    
+    def lookup_instance_type_id(self, cloud_provider_id: int, region_id: int, instance_type_name: str) -> int:
+        """Look up instance type ID by name."""
+        response = self.get_cloud_provider_region(cloud_provider_id, region_id)
+        # Handle nested response structure
+        if isinstance(response, dict):
+            # Extract from nested structure if present
+            if 'data' in response:
+                region_details = response['data']
+            else:
+                region_details = response
+        else:
+            region_details = {}
+        
+        # API returns 'instances' not 'instanceTypes', and uses 'externalId' for the name
+        instance_types = region_details.get('instances', region_details.get('instanceTypes', []))
+        for instance_type in instance_types:
+            if isinstance(instance_type, dict):
+                # Check both externalId and name fields
+                if instance_type.get('externalId') == instance_type_name or instance_type.get('name') == instance_type_name:
+                    return instance_type['id']
+        raise ValueError(f"Instance type '{instance_type_name}' not found in region ID {region_id}")
 
 
 class StateManager:
@@ -170,29 +251,66 @@ def cmd_create(args):
         print(f"✗ Error: Cluster '{args.name}' already exists in local state", file=sys.stderr)
         sys.exit(1)
     
+    try:
+        # Look up IDs for cloud provider, region, and instance types
+        print(f"Looking up cloud provider ID for '{args.cloud_provider}'...")
+        if args.debug:
+            providers_response = client.get_cloud_providers()
+            print(f"[DEBUG] Cloud providers response: {json.dumps(providers_response, indent=2)}")
+        cloud_provider_id = client.lookup_cloud_provider_id(args.cloud_provider)
+        print(f"  Found cloud provider ID: {cloud_provider_id}")
+        
+        print(f"Looking up region ID for '{args.region}'...")
+        if args.debug:
+            regions_response = client.get_cloud_provider_regions(cloud_provider_id)
+            print(f"[DEBUG] Regions response: {json.dumps(regions_response, indent=2)}")
+        region_id = client.lookup_region_id(cloud_provider_id, args.region)
+        print(f"  Found region ID: {region_id}")
+        
+        print(f"Looking up instance type ID for '{args.node_type}'...")
+        if args.debug:
+            instance_response = client.get_cloud_provider_region(cloud_provider_id, region_id)
+            print(f"[DEBUG] Instance types response: {json.dumps(instance_response, indent=2)}")
+        instance_id = client.lookup_instance_type_id(cloud_provider_id, region_id, args.node_type)
+        print(f"  Found instance type ID: {instance_id}")
+        
+        # Look up vector instance type ID if vector search is enabled
+        vector_instance_id = None
+        if args.enable_vector_search:
+            print(f"Looking up vector instance type ID for '{args.vector_node_type}'...")
+            vector_instance_id = client.lookup_instance_type_id(cloud_provider_id, region_id, args.vector_node_type)
+            print(f"  Found vector instance type ID: {vector_instance_id}")
+    
+    except ValueError as e:
+        print(f"✗ Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    
     # Build cluster configuration
     config = {
         "name": args.name,
         "accountId": args.account_id,
-        "cloudProvider": args.cloud_provider,
-        "region": args.region,
-        "nodeCount": args.node_count,
-        "nodeType": args.node_type,
+        "cloudProviderId": cloud_provider_id,
+        "regionId": region_id,
+        "instanceId": instance_id,
+        "numberOfNodes": args.node_count,
+        "cidrBlock": args.cidr_block,
+        "broadcastType": args.broadcast_type,
+        "replicationFactor": args.replication_factor,
+        "tablets": "false" if args.disable_tablets else "enforced",
     }
     
     # Add vector search configuration if enabled
     if args.enable_vector_search:
         config["vectorSearch"] = {
-            "enabled": True,
-            "nodeCount": args.vector_node_count,
-            "nodeType": args.vector_node_type
+            "defaultNodes": args.vector_node_count,
+            "defaultInstanceTypeId": vector_instance_id
         }
     
     # Add optional parameters
     if args.scylla_version:
         config["scyllaVersion"] = args.scylla_version
-    if args.cidr_block:
-        config["cidrBlock"] = args.cidr_block
+    if args.allowed_ips:
+        config["allowedIPs"] = args.allowed_ips
     if args.enable_dns:
         config["enableDns"] = args.enable_dns
     if args.enable_vpc_peering:
@@ -491,14 +609,39 @@ def main():
         help="Instance type for vector search nodes (default: i4i.large)"
     )
     create_parser.add_argument(
-        "--scylla-version",
+        "--broadcast-type",
         type=str,
-        help="ScyllaDB version (optional)"
+        choices=["PUBLIC", "PRIVATE"],
+        default="PUBLIC",
+        help="Broadcast type (default: PUBLIC)"
     )
     create_parser.add_argument(
         "--cidr-block",
         type=str,
-        help="CIDR block for VPC (optional)"
+        default="192.168.1.0/24",
+        help="CIDR block for VPC (default: 192.168.1.0/24)"
+    )
+    create_parser.add_argument(
+        "--allowed-ips",
+        type=str,
+        nargs="*",
+        help="Allowed IP addresses (optional, space-separated list)"
+    )
+    create_parser.add_argument(
+        "--replication-factor",
+        type=int,
+        default=3,
+        help="Replication factor (default: 3)"
+    )
+    create_parser.add_argument(
+        "--disable-tablets",
+        action="store_true",
+        help="Disable tablets (enabled by default)"
+    )
+    create_parser.add_argument(
+        "--scylla-version",
+        type=str,
+        help="ScyllaDB version (optional)"
     )
     create_parser.add_argument(
         "--enable-dns",

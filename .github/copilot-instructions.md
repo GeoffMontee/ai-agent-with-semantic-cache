@@ -207,7 +207,12 @@ Provides a command-line interface for:
 #### `ScyllaCloudClient` Class
 - Handles all REST API interactions
 - Methods for cluster CRUD operations
+- **ID Lookup Methods**: Translates user-friendly names to API IDs
+  - `lookup_cloud_provider_id()`: AWS/GCP → cloud provider ID
+  - `lookup_region_id()`: Region name → region ID
+  - `lookup_instance_type_id()`: Instance type name → instance type ID
 - Manages authentication headers
+- Debug mode for full request/response logging
 
 #### `StateManager` Class
 - Persists cluster information locally
@@ -221,9 +226,30 @@ Same as main tool:
 3. Default values (lowest)
 
 ### Vector Search Support
-- Clusters can be created with vector search enabled via `--enable-vector-search`
+- Clusters are created with vector search enabled by default (use `--disable-vector-search` to disable)
 - Separate configuration for vector search nodes (count and instance type)
 - Required for the semantic caching feature in the main AI agent
+
+### Cluster Creation API Pattern
+- **ID Translation Required**: The API requires numeric IDs, not string names
+- **Three-Step Lookup Process**:
+  1. Look up cloud provider ID from provider name (AWS/GCP)
+  2. Look up region ID from region name using cloud provider ID
+  3. Look up instance type IDs from instance type names using cloud provider ID + region ID
+- **Request Body Structure**: Uses correct field names per API documentation
+  - `cloudProviderId`, `regionId`, `instanceId` (not cloudProvider, region, nodeType)
+  - `numberOfNodes` (not nodeCount)
+  - `vectorSearch.defaultNodes`, `vectorSearch.defaultInstanceTypeId` (not nodeCount, nodeType)
+  - `broadcastType`: PUBLIC or PRIVATE (default: PUBLIC)
+  - `cidrBlock`: Required, defaults to 192.168.1.0/24
+  - `replicationFactor`: Defaults to 3
+  - `tablets`: "enforced" by default, "false" if disabled
+  - `allowedIPs`: Optional list of allowed IP addresses
+- **Vector Search**: Entire object omitted when disabled (not `enabled: false`)
+- **API Endpoints Used**:
+  - `/deployment/cloud-providers` - Get cloud provider list
+  - `/deployment/cloud-provider/{id}/regions` - Get regions for provider
+  - `/deployment/cloud-provider/{id}/region/{id}` - Get instance types for region
 
 ### Integration with Main Tool
 The deployment tool creates clusters that are then used by `ai_agent_with_cache.py`:
@@ -238,16 +264,24 @@ The deployment tool creates clusters that are then used by `ai_agent_with_cache.
 
 ### Testing Recommendations for ScyllaDB Cloud Tool
 - [ ] Test cluster creation with minimal configuration
-- [ ] Test cluster creation with vector search enabled
+- [ ] Test cluster creation with vector search enabled (default)
+- [ ] Test cluster creation with vector search disabled
 - [ ] Test cluster creation with full configuration options
+- [ ] Test ID lookup for different cloud providers (AWS/GCP)
+- [ ] Test ID lookup for different regions
+- [ ] Test ID lookup for different instance types
+- [ ] Test with invalid cloud provider/region/instance type names
+- [ ] Test all new options: --broadcast-type, --cidr-block, --allowed-ips, --replication-factor, --disable-tablets
 - [ ] Verify state file is created and updated correctly
 - [ ] Test destroy with and without --force flag
 - [ ] Test status command with active and pending clusters
 - [ ] Test info command output formats
 - [ ] Test list command with empty and populated state
+- [ ] Test get-account-info command
 - [ ] Verify API key validation
 - [ ] Test with invalid cluster names
 - [ ] Verify minimum node count validation (3 nodes)
+- [ ] Test debug mode with --debug flag
 
 ## Future Enhancement Ideas
 

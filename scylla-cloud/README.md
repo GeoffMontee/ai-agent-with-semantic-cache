@@ -5,11 +5,13 @@ A command-line tool for managing ScyllaDB Cloud clusters with vector search supp
 ## Features
 
 - 🚀 **Create Clusters**: Deploy ScyllaDB clusters with optional vector search nodes
+- � **Smart ID Lookups**: Automatically translates cloud provider, region, and instance type names to API IDs
 - 🗑️ **Destroy Clusters**: Clean up clusters when no longer needed
 - 📊 **Status Monitoring**: Check cluster status and health
 - 🔌 **Connection Info**: Retrieve connection details for client applications
 - 💾 **State Management**: Track clusters locally for easy management
 - 🎛️ **Flexible Output**: Human-readable text or JSON for scripting
+- 🔧 **Debug Mode**: Full request/response logging for troubleshooting
 
 ## Requirements
 
@@ -64,14 +66,23 @@ The tool stores cluster information locally in `~/.scylla-clusters.json`. This f
 
 ### Create a Cluster
 
-**Basic cluster (3 nodes, vector search enabled by default):**
+**Basic cluster (vector search enabled by default):**
 ```bash
 ./deploy-scylla-cloud.py create \
   --name mycluster \
-  --account-id "your-account-id" \
-  --cloud-provider AWS \
-  --region us-east-1
+  --account-id "your-account-id"
 ```
+
+This creates a cluster with:
+- 3 ScyllaDB nodes (i4i.large instances)
+- 3 vector search nodes (i4i.large instances)
+- AWS cloud provider in us-east-1 region
+- PUBLIC broadcast type
+- CIDR block: 192.168.1.0/24
+- Replication factor: 3
+- Tablets enabled
+
+The tool automatically looks up the cloud provider ID, region ID, and instance type IDs from the ScyllaDB Cloud API.
 
 **With custom vector search configuration:**
 ```bash
@@ -97,8 +108,11 @@ The tool stores cluster information locally in `~/.scylla-clusters.json`. This f
   --node-type n2-highmem-8 \
   --vector-node-count 3 \
   --vector-node-type n2-highmem-4 \
-  --scylla-version "5.2.0" \
+  --broadcast-type PRIVATE \
   --cidr-block "10.0.0.0/16" \
+  --allowed-ips "203.0.113.0/24" "198.51.100.0/24" \
+  --replication-factor 3 \
+  --scylla-version "5.2.0" \
   --enable-dns \
   --enable-vpc-peering
 ```
@@ -177,8 +191,12 @@ This command is useful for finding your account ID when you need to create a new
 | `--disable-vector-search` | Disable vector search (enabled by default) | `False` |
 | `--vector-node-count` | Number of vector search nodes | `3` |
 | `--vector-node-type` | Instance type for vector nodes | `i4i.large` |
+| `--broadcast-type` | Broadcast type: `PUBLIC` or `PRIVATE` | `PUBLIC` |
+| `--cidr-block` | VPC CIDR block | `192.168.1.0/24` |
+| `--allowed-ips` | Allowed IP addresses (space-separated) | None |
+| `--replication-factor` | Replication factor | `3` |
+| `--disable-tablets` | Disable tablets (enabled by default) | `False` |
 | `--scylla-version` | ScyllaDB version | Latest |
-| `--cidr-block` | VPC CIDR block | Auto |
 | `--enable-dns` | Enable DNS | `False` |
 | `--enable-vpc-peering` | Enable VPC peering | `False` |
 
@@ -210,6 +228,45 @@ No additional options required.
 Retrieve ScyllaDB Cloud account information.
 
 No additional options required. Only `--api-key` (or `SCYLLA_CLOUD_API_KEY`) is needed.
+
+## How Cluster Creation Works
+
+When you create a cluster, the tool performs the following steps:
+
+1. **Validates** your configuration (account ID, node count, etc.)
+2. **Looks up Cloud Provider ID** from the provider name (AWS/GCP) using `/deployment/cloud-providers` endpoint
+3. **Looks up Region ID** from the region name using `/deployment/cloud-provider/{id}/regions` endpoint
+4. **Looks up Instance Type IDs** for both ScyllaDB and vector search nodes using `/deployment/cloud-provider/{id}/region/{id}` endpoint
+5. **Constructs API request** with proper field names and numeric IDs
+6. **Creates cluster** via `/cluster/v1/clusters` endpoint
+7. **Saves cluster info** to local state file (`~/.scylla-clusters.json`)
+
+This automatic ID translation means you can use familiar names like "AWS" and "us-east-1" instead of looking up numeric IDs manually.
+
+### API Request Body
+
+The tool constructs a request body that matches the ScyllaDB Cloud API specification:
+
+```json
+{
+  "name": "mycluster",
+  "accountId": "12345",
+  "cloudProviderId": 1,
+  "regionId": 10,
+  "instanceId": 42,
+  "numberOfNodes": 3,
+  "cidrBlock": "192.168.1.0/24",
+  "broadcastType": "PUBLIC",
+  "replicationFactor": 3,
+  "tablets": "enforced",
+  "vectorSearch": {
+    "defaultNodes": 3,
+    "defaultInstanceTypeId": 42
+  }
+}
+```
+
+**Important**: The tool uses the correct API field names (`cloudProviderId`, `regionId`, `instanceId`, `numberOfNodes`, etc.) which differ from the CLI option names for better user experience.
 
 ## Output Formats
 
@@ -361,10 +418,11 @@ done
 
 The tool follows these error handling principles:
 
-1. **Validation Errors**: Caught early with clear messages
-2. **API Errors**: HTTP errors from ScyllaDB Cloud API are displayed with response details
-3. **Failed Resources**: Left in place for manual inspection (no automatic cleanup)
-4. **State Consistency**: Local state always reflects attempted operations
+1. **Validation Errors**: Caught early with clear messages (e.g., invalid cloud provider, region, or instance type names)
+2. **API Lookup Errors**: Clear error messages when cloud provider, region, or instance type cannot be found
+3. **API Errors**: HTTP errors from ScyllaDB Cloud API are displayed with response details
+4. **Failed Resources**: Left in place for manual inspection (no automatic cleanup)
+5. **State Consistency**: Local state always reflects attempted operations
 
 ## Instance Types
 
@@ -425,15 +483,18 @@ Headers: {
 }
 Request Body: {
   "name": "mycluster",
-  "accountId": "your-account-id",
-  "cloudProvider": "AWS",
-  "region": "us-east-1",
-  "nodeCount": 3,
-  "nodeType": "i4i.large",
+  "accountId": "12345",
+  "cloudProviderId": 1,
+  "regionId": 10,
+  "instanceId": 42,
+  "numberOfNodes": 3,
+  "cidrBlock": "192.168.1.0/24",
+  "broadcastType": "PUBLIC",
+  "replicationFactor": 3,
+  "tablets": "enforced",
   "vectorSearch": {
-    "enabled": true,
-    "nodeCount": 3,
-    "nodeType": "i4i.large"
+    "defaultNodes": 3,
+    "defaultInstanceTypeId": 42
   }
 }
 
@@ -445,6 +506,14 @@ Response Body: {...}
 
 ## Troubleshooting
 
+### ID Lookup Errors
+```
+✗ Error: Cloud provider 'XYZ' not found
+✗ Error: Region 'invalid-region' not found for cloud provider ID 1
+✗ Error: Instance type 'invalid-type' not found in region ID 10
+```
+**Solution**: Check that you're using valid cloud provider names (AWS or GCP), valid region names for your cloud provider, and valid instance types for your region. Use `--debug` to see the API responses during lookup.
+
 ### HTTP Errors
 ```
 ✗ API Error
@@ -454,7 +523,7 @@ HTTP Status: 500
 - Invalid configuration parameters
 - Insufficient API key permissions
 - ScyllaDB Cloud service issues
-- Invalid region or instance type combinations
+- Invalid region or instance type combinations (though these are now caught during ID lookup)
 
 ### API Key Issues
 ```
