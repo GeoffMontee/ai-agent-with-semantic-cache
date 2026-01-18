@@ -166,6 +166,7 @@ def cmd_create(args):
     # Build cluster configuration
     config = {
         "name": args.name,
+        "accountId": args.account_id,
         "cloudProvider": args.cloud_provider,
         "region": args.region,
         "nodeCount": args.node_count,
@@ -198,6 +199,7 @@ def cmd_create(args):
         cluster_data = {
             "cluster_id": result.get("id"),
             "name": args.name,
+            "account_id": args.account_id,
             "cloud_provider": args.cloud_provider,
             "region": args.region,
             "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -408,6 +410,11 @@ def main():
     create_parser = subparsers.add_parser("create", help="Create a new cluster")
     create_parser.add_argument("--name", type=str, required=True, help="Cluster name")
     create_parser.add_argument(
+        "--account-id",
+        type=str,
+        help="ScyllaDB Cloud account ID (required, or set SCYLLA_CLOUD_ACCOUNT_ID env var)"
+    )
+    create_parser.add_argument(
         "--cloud-provider",
         type=str,
         choices=["AWS", "GCP"],
@@ -510,6 +517,12 @@ def main():
     if args.command == "create":
         if args.node_count < 3:
             print("✗ Error: Minimum node count is 3", file=sys.stderr)
+            sys.exit(1)
+        # Validate account ID
+        if not args.account_id:
+            args.account_id = os.getenv("SCYLLA_CLOUD_ACCOUNT_ID")
+        if not args.account_id:
+            print("✗ Error: Account ID is required. Use --account-id or set SCYLLA_CLOUD_ACCOUNT_ID", file=sys.stderr)
             sys.exit(1)
         cmd_create(args)
     elif args.command == "destroy":

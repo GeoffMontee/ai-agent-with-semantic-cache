@@ -68,6 +68,7 @@ The tool stores cluster information locally in `~/.scylla-clusters.json`. This f
 ```bash
 ./deploy-scylla-cloud.py create \
   --name mycluster \
+  --account-id "your-account-id" \
   --cloud-provider AWS \
   --region us-east-1
 ```
@@ -76,6 +77,7 @@ The tool stores cluster information locally in `~/.scylla-clusters.json`. This f
 ```bash
 ./deploy-scylla-cloud.py create \
   --name vectorcluster \
+  --account-id "your-account-id" \
   --cloud-provider AWS \
   --region us-east-1 \
   --node-count 3 \
@@ -88,6 +90,7 @@ The tool stores cluster information locally in `~/.scylla-clusters.json`. This f
 ```bash
 ./deploy-scylla-cloud.py create \
   --name production-cluster \
+  --account-id "your-account-id" \
   --cloud-provider GCP \
   --region us-central1 \
   --node-count 5 \
@@ -151,6 +154,7 @@ Output includes:
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--name` | Cluster name (required) | - |
+| `--account-id` | ScyllaDB Cloud account ID (required) | `SCYLLA_CLOUD_ACCOUNT_ID` env var |
 | `--cloud-provider` | Cloud provider: `AWS` or `GCP` | `AWS` |
 | `--region` | Cloud region | `us-east-1` |
 | `--node-count` | Number of ScyllaDB nodes (min: 3) | `3` |
@@ -262,7 +266,7 @@ The tool maintains a local state file at `~/.scylla-clusters.json`:
 
 ```bash
 # Create minimal cluster (vector search enabled by default)
-./deploy-scylla-cloud.py create --name dev-cluster
+./deploy-scylla-cloud.py create --name dev-cluster --account-id "your-account-id"
 
 # Check when ready
 ./deploy-scylla-cloud.py status --name dev-cluster
@@ -280,6 +284,7 @@ The tool maintains a local state file at `~/.scylla-clusters.json`:
 # Create production-ready cluster
 ./deploy-scylla-cloud.py create \
   --name prod-vectordb \
+  --account-id "your-account-id" \
   --cloud-provider AWS \
   --region us-east-1 \
   --node-count 5 \
@@ -372,7 +377,7 @@ Check the [ScyllaDB Cloud documentation](https://cloud.docs.scylladb.com) for th
 The tool includes comprehensive debug output to help diagnose API issues:
 
 ```bash
-./deploy-scylla-cloud.py create --name mycluster --debug
+./deploy-scylla-cloud.py create --name mycluster --account-id "your-account-id" --debug
 ```
 
 With `--debug` enabled, the tool displays:
@@ -396,6 +401,7 @@ Headers: {
 }
 Request Body: {
   "name": "mycluster",
+  "accountId": "your-account-id",
   "cloudProvider": "AWS",
   "region": "us-east-1",
   "nodeCount": 3,
@@ -432,6 +438,12 @@ HTTP Status: 500
 ```
 **Solution**: Set the `SCYLLA_CLOUD_API_KEY` environment variable or use `--api-key`.
 
+### Missing Account ID
+```
+✗ Error: Account ID is required. Use --account-id or set SCYLLA_CLOUD_ACCOUNT_ID
+```
+**Solution**: Provide your ScyllaDB Cloud account ID via `--account-id` or set the `SCYLLA_CLOUD_ACCOUNT_ID` environment variable. You can find your account ID in the ScyllaDB Cloud console.
+
 ### Cluster Already Exists
 ```
 ✗ Error: Cluster 'mycluster' already exists in local state
@@ -456,7 +468,7 @@ After creating a cluster with vector search, use the connection information in t
 
 ```bash
 # Create cluster and get connection info
-./deploy-scylla-cloud.py create --name ai-cache
+./deploy-scylla-cloud.py create --name ai-cache --account-id "your-account-id"
 ./deploy-scylla-cloud.py info --name ai-cache --format json > connection.json
 
 # Extract connection details
