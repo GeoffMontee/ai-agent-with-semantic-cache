@@ -90,6 +90,13 @@ class ScyllaCloudClient:
             "datacenter": cluster.get("datacenters", [{}])[0] if cluster.get("datacenters") else {},
             "connection": cluster.get("connection", {})
         }
+    
+    def get_account_info(self) -> Dict[str, Any]:
+        """Get default account information."""
+        url = f"{API_BASE_URL}/account/default"
+        response = requests.get(url, headers=self.headers)
+        response.raise_for_status()
+        return response.json()
 
 
 class StateManager:
@@ -380,6 +387,32 @@ def cmd_list(args):
                 print(f"    Created: {data.get('created_at')}")
 
 
+def cmd_get_account_info(args):
+    """Get ScyllaDB Cloud account information."""
+    client = ScyllaCloudClient(args.api_key, debug=args.debug)
+    
+    try:
+        result = client.get_account_info()
+        
+        if args.format == "text":
+            print("ScyllaDB Cloud Account Information:")
+            print("-" * 80)
+        
+        output_result(result, args.format)
+        
+        if args.format == "text":
+            print("-" * 80)
+        
+    except requests.exceptions.HTTPError as e:
+        print(f"✗ API Error: {e}", file=sys.stderr)
+        if e.response is not None:
+            print(f"Response: {e.response.text}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"✗ Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="ScyllaDB Cloud cluster management with vector search support"
@@ -498,6 +531,9 @@ def main():
     # List command
     list_parser = subparsers.add_parser("list", help="List all clusters in local state")
     
+    # Get account info command
+    account_parser = subparsers.add_parser("get-account-info", help="Get ScyllaDB Cloud account information")
+    
     args = parser.parse_args()
     
     # Validate command
@@ -505,9 +541,9 @@ def main():
         parser.print_help()
         sys.exit(1)
     
-    # Get API key
+    # Get API key (not required for 'list' command)
     api_key = args.api_key or os.getenv("SCYLLA_CLOUD_API_KEY")
-    if not api_key and args.command != "list":
+    if not api_key and args.command not in ["list"]:
         print("✗ Error: API key required. Use --api-key or set SCYLLA_CLOUD_API_KEY", file=sys.stderr)
         sys.exit(1)
     
@@ -533,6 +569,8 @@ def main():
         cmd_info(args)
     elif args.command == "list":
         cmd_list(args)
+    elif args.command == "get-account-info":
+        cmd_get_account_info(args)
 
 
 if __name__ == "__main__":

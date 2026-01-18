@@ -127,6 +127,21 @@ Output includes:
 ./deploy-scylla-cloud.py list
 ```
 
+### Get Account Information
+
+Retrieve your ScyllaDB Cloud account information, including the account ID needed for cluster creation:
+
+```bash
+./deploy-scylla-cloud.py get-account-info
+```
+
+This command is useful for finding your account ID when you need to create a new cluster. The account ID is required by the `create` command.
+
+**JSON output:**
+```bash
+./deploy-scylla-cloud.py get-account-info --format json
+```
+
 ### Destroy a Cluster
 
 **With confirmation prompt:**
@@ -189,6 +204,12 @@ Output includes:
 ### List Command
 
 No additional options required.
+
+### Get Account Info Command
+
+Retrieve ScyllaDB Cloud account information.
+
+No additional options required. Only `--api-key` (or `SCYLLA_CLOUD_API_KEY`) is needed.
 
 ## Output Formats
 
@@ -265,6 +286,9 @@ The tool maintains a local state file at `~/.scylla-clusters.json`:
 ### Quick Development Cluster
 
 ```bash
+# Get your account ID first (if you don't know it)
+./deploy-scylla-cloud.py get-account-info
+
 # Create minimal cluster (vector search enabled by default)
 ./deploy-scylla-cloud.py create --name dev-cluster --account-id "your-account-id"
 
@@ -442,7 +466,11 @@ HTTP Status: 500
 ```
 ✗ Error: Account ID is required. Use --account-id or set SCYLLA_CLOUD_ACCOUNT_ID
 ```
-**Solution**: Provide your ScyllaDB Cloud account ID via `--account-id` or set the `SCYLLA_CLOUD_ACCOUNT_ID` environment variable. You can find your account ID in the ScyllaDB Cloud console.
+**Solution**: Get your account ID using the `get-account-info` command:
+```bash
+./deploy-scylla-cloud.py get-account-info
+```
+Then provide it via `--account-id` or set the `SCYLLA_CLOUD_ACCOUNT_ID` environment variable. You can also find your account ID in the ScyllaDB Cloud console.
 
 ### Cluster Already Exists
 ```
