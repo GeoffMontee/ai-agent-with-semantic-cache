@@ -393,9 +393,10 @@ def main():
         help="Instance type for ScyllaDB nodes (default: i4i.large)"
     )
     create_parser.add_argument(
-        "--enable-vector-search",
-        action="store_true",
-        help="Enable vector search capability"
+        "--disable-vector-search",
+        action="store_false",
+        dest="enable_vector_search",
+        help="Disable vector search capability (vector search is enabled by default)"
     )
     create_parser.add_argument(
         "--vector-node-count",
