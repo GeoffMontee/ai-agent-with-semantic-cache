@@ -165,7 +165,7 @@ value = (
 ### Core Dependencies
 - `autogen-ext`: Anthropic client integration
 - `autogen-core`: Message types and interfaces
-- `cassandra-driver`: ScyllaDB/Cassandra connectivity
+- `scylla-driver`: ScyllaDB connectivity
 - `sentence-transformers`: Embedding generation
 - `numpy`: Array operations
 

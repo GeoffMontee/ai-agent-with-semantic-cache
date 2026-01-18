@@ -27,7 +27,12 @@ cd ai-agent-with-semantic-cache
 
 2. Install dependencies:
 ```bash
-pip install autogen-ext autogen-core sentence-transformers cassandra-driver numpy anthropic
+pip install -r requirements.txt
+```
+
+Or manually:
+```bash
+pip install autogen-ext autogen-core sentence-transformers scylla-driver numpy anthropic
 ```
 
 3. Set up your environment variables (optional):

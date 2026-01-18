@@ -1,0 +1,15 @@
+# Autogen framework for AI agents
+autogen-ext>=0.4.0
+autogen-core>=0.4.0
+
+# Anthropic API client
+anthropic>=0.34.0
+
+# ScyllaDB database driver
+scylla-driver>=3.26.0
+
+# Sentence transformers for embeddings
+sentence-transformers>=2.2.2
+
+# Numerical operations
+numpy>=1.24.0
