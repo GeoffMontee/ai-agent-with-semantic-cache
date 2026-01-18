@@ -21,8 +21,9 @@ STATE_FILE = Path.home() / ".scylla-clusters.json"
 class ScyllaCloudClient:
     """Client for ScyllaDB Cloud REST API."""
     
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, debug: bool = False):
         self.api_key = api_key
+        self.debug = debug
         self.headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
@@ -31,8 +32,32 @@ class ScyllaCloudClient:
     def create_cluster(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new ScyllaDB cluster with vector search support."""
         url = f"{API_BASE_URL}/cluster/v1/clusters"
+        
+        if self.debug:
+            print(f"\n=== DEBUG: POST {url} ===")
+            print(f"Headers: {json.dumps({k: v for k, v in self.headers.items() if k != 'Authorization'}, indent=2)}")
+            print(f"Request Body: {json.dumps(config, indent=2)}")
+        
         response = requests.post(url, json=config, headers=self.headers)
-        response.raise_for_status()
+        
+        if self.debug:
+            print(f"\nResponse Status: {response.status_code}")
+            print(f"Response Headers: {json.dumps(dict(response.headers), indent=2)}")
+            try:
+                print(f"Response Body: {json.dumps(response.json(), indent=2)}")
+            except:
+                print(f"Response Body: {response.text}")
+            print("=== END DEBUG ===")
+        
+        if not response.ok:
+            error_msg = f"HTTP {response.status_code} Error"
+            try:
+                error_body = response.json()
+                error_msg += f"\n{json.dumps(error_body, indent=2)}"
+            except:
+                error_msg += f"\n{response.text}"
+            raise requests.exceptions.HTTPError(error_msg, response=response)
+        
         return response.json()
     
     def get_cluster(self, cluster_id: str) -> Dict[str, Any]:
@@ -130,7 +155,7 @@ def output_result(data: Any, format_type: str):
 
 def cmd_create(args):
     """Create a new ScyllaDB cluster with vector search."""
-    client = ScyllaCloudClient(args.api_key)
+    client = ScyllaCloudClient(args.api_key, debug=args.debug)
     state_mgr = StateManager()
     
     # Check if cluster name already exists
@@ -188,9 +213,19 @@ def cmd_create(args):
         output_result(result, args.format)
         
     except requests.exceptions.HTTPError as e:
-        print(f"✗ API Error: {e}", file=sys.stderr)
+        print(f"\n✗ API Error: {e}", file=sys.stderr)
         if e.response is not None:
-            print(f"Response: {e.response.text}", file=sys.stderr)
+            print(f"\nHTTP Status: {e.response.status_code}", file=sys.stderr)
+            print(f"URL: {e.response.url}", file=sys.stderr)
+            try:
+                error_body = e.response.json()
+                print(f"\nError Details:", file=sys.stderr)
+                print(json.dumps(error_body, indent=2), file=sys.stderr)
+            except:
+                print(f"\nResponse Body:", file=sys.stderr)
+                print(e.response.text, file=sys.stderr)
+        if not args.debug:
+            print(f"\nTip: Run with --debug flag for full request/response details", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         print(f"✗ Error: {e}", file=sys.stderr)
@@ -199,7 +234,7 @@ def cmd_create(args):
 
 def cmd_destroy(args):
     """Destroy a ScyllaDB cluster."""
-    client = ScyllaCloudClient(args.api_key)
+    client = ScyllaCloudClient(args.api_key, debug=args.debug)
     state_mgr = StateManager()
     
     # Get cluster from state
@@ -241,7 +276,7 @@ def cmd_destroy(args):
 
 def cmd_status(args):
     """Get status of a ScyllaDB cluster."""
-    client = ScyllaCloudClient(args.api_key)
+    client = ScyllaCloudClient(args.api_key, debug=args.debug)
     state_mgr = StateManager()
     
     # Get cluster from state
@@ -283,7 +318,7 @@ def cmd_status(args):
 
 def cmd_info(args):
     """Get connection information for a ScyllaDB cluster."""
-    client = ScyllaCloudClient(args.api_key)
+    client = ScyllaCloudClient(args.api_key, debug=args.debug)
     state_mgr = StateManager()
     
     # Get cluster from state
@@ -360,6 +395,11 @@ def main():
         choices=["text", "json"],
         default="text",
         help="Output format (default: text)"
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug output (shows full request/response details)"
     )
     
     subparsers = parser.add_subparsers(dest="command", help="Available commands")

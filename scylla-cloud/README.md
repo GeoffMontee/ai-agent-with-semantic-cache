@@ -64,7 +64,7 @@ The tool stores cluster information locally in `~/.scylla-clusters.json`. This f
 
 ### Create a Cluster
 
-**Basic cluster (3 nodes, no vector search):**
+**Basic cluster (3 nodes, vector search enabled by default):**
 ```bash
 ./deploy-scylla-cloud.py create \
   --name mycluster \
@@ -72,7 +72,7 @@ The tool stores cluster information locally in `~/.scylla-clusters.json`. This f
   --region us-east-1
 ```
 
-**With vector search enabled:**
+**With custom vector search configuration:**
 ```bash
 ./deploy-scylla-cloud.py create \
   --name vectorcluster \
@@ -80,7 +80,6 @@ The tool stores cluster information locally in `~/.scylla-clusters.json`. This f
   --region us-east-1 \
   --node-count 3 \
   --node-type i4i.large \
-  --enable-vector-search \
   --vector-node-count 3 \
   --vector-node-type i4i.large
 ```
@@ -93,7 +92,6 @@ The tool stores cluster information locally in `~/.scylla-clusters.json`. This f
   --region us-central1 \
   --node-count 5 \
   --node-type n2-highmem-8 \
-  --enable-vector-search \
   --vector-node-count 3 \
   --vector-node-type n2-highmem-4 \
   --scylla-version "5.2.0" \
@@ -146,6 +144,7 @@ Output includes:
 |--------|-------------|---------|
 | `--api-key` | ScyllaDB Cloud API key | `SCYLLA_CLOUD_API_KEY` env var |
 | `--format` | Output format: `text` or `json` | `text` |
+| `--debug` | Enable debug output with full request/response details | `False` |
 
 ### Create Command
 
@@ -156,7 +155,7 @@ Output includes:
 | `--region` | Cloud region | `us-east-1` |
 | `--node-count` | Number of ScyllaDB nodes (min: 3) | `3` |
 | `--node-type` | Instance type for ScyllaDB nodes | `i4i.large` |
-| `--enable-vector-search` | Enable vector search | `False` |
+| `--disable-vector-search` | Disable vector search (enabled by default) | `False` |
 | `--vector-node-count` | Number of vector search nodes | `3` |
 | `--vector-node-type` | Instance type for vector nodes | `i4i.large` |
 | `--scylla-version` | ScyllaDB version | Latest |
@@ -262,7 +261,7 @@ The tool maintains a local state file at `~/.scylla-clusters.json`:
 ### Quick Development Cluster
 
 ```bash
-# Create minimal cluster
+# Create minimal cluster (vector search enabled by default)
 ./deploy-scylla-cloud.py create --name dev-cluster
 
 # Check when ready
@@ -285,7 +284,6 @@ The tool maintains a local state file at `~/.scylla-clusters.json`:
   --region us-east-1 \
   --node-count 5 \
   --node-type i4i.2xlarge \
-  --enable-vector-search \
   --vector-node-count 3 \
   --vector-node-type i4i.xlarge \
   --enable-dns \
@@ -369,7 +367,64 @@ The tool follows these error handling principles:
 
 Check the [ScyllaDB Cloud documentation](https://cloud.docs.scylladb.com) for the latest supported regions and instance types.
 
+## Debugging
+
+The tool includes comprehensive debug output to help diagnose API issues:
+
+```bash
+./deploy-scylla-cloud.py create --name mycluster --debug
+```
+
+With `--debug` enabled, the tool displays:
+- Full request URL and headers
+- Complete request body (JSON)
+- Response status code
+- Response headers
+- Detailed response body
+
+This is especially helpful when:
+- Troubleshooting 4xx/5xx HTTP errors
+- Verifying API request format
+- Understanding API error messages
+- Debugging configuration issues
+
+**Example debug output:**
+```
+=== DEBUG: POST https://api.cloud.scylladb.com/cluster/v1/clusters ===
+Headers: {
+  "Content-Type": "application/json"
+}
+Request Body: {
+  "name": "mycluster",
+  "cloudProvider": "AWS",
+  "region": "us-east-1",
+  "nodeCount": 3,
+  "nodeType": "i4i.large",
+  "vectorSearch": {
+    "enabled": true,
+    "nodeCount": 3,
+    "nodeType": "i4i.large"
+  }
+}
+
+Response Status: 200
+Response Headers: {...}
+Response Body: {...}
+=== END DEBUG ===
+```
+
 ## Troubleshooting
+
+### HTTP Errors
+```
+✗ API Error
+HTTP Status: 500
+```
+**Solution**: Run with `--debug` to see full error details. Common causes:
+- Invalid configuration parameters
+- Insufficient API key permissions
+- ScyllaDB Cloud service issues
+- Invalid region or instance type combinations
 
 ### API Key Issues
 ```
@@ -401,7 +456,7 @@ After creating a cluster with vector search, use the connection information in t
 
 ```bash
 # Create cluster and get connection info
-./deploy-scylla-cloud.py create --name ai-cache --enable-vector-search
+./deploy-scylla-cloud.py create --name ai-cache
 ./deploy-scylla-cloud.py info --name ai-cache --format json > connection.json
 
 # Extract connection details
