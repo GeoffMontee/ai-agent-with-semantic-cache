@@ -1,0 +1,430 @@
+# ScyllaDB Cloud Deployment Tool
+
+A command-line tool for managing ScyllaDB Cloud clusters with vector search support using the ScyllaDB Cloud REST API.
+
+## Features
+
+- 🚀 **Create Clusters**: Deploy ScyllaDB clusters with optional vector search nodes
+- 🗑️ **Destroy Clusters**: Clean up clusters when no longer needed
+- 📊 **Status Monitoring**: Check cluster status and health
+- 🔌 **Connection Info**: Retrieve connection details for client applications
+- 💾 **State Management**: Track clusters locally for easy management
+- 🎛️ **Flexible Output**: Human-readable text or JSON for scripting
+
+## Requirements
+
+- Python 3.8+
+- ScyllaDB Cloud API key
+- `requests` library
+
+## Installation
+
+Install the required Python package:
+
+```bash
+pip install -r requirements.txt
+```
+
+Or manually:
+
+```bash
+pip install requests
+```
+
+Make the script executable:
+
+```bash
+chmod +x deploy-scylla-cloud.py
+```
+
+## Configuration
+
+### API Key
+
+Set your ScyllaDB Cloud API key either via:
+
+1. **Environment variable** (recommended):
+```bash
+export SCYLLA_CLOUD_API_KEY="your-api-key"
+```
+
+2. **Command-line argument**:
+```bash
+./deploy-scylla-cloud.py create --api-key "your-api-key" --name mycluster
+```
+
+### State File
+
+The tool stores cluster information locally in `~/.scylla-clusters.json`. This file tracks:
+- Cluster names and IDs
+- Configuration details
+- Creation timestamps
+
+## Usage
+
+### Create a Cluster
+
+**Basic cluster (3 nodes, no vector search):**
+```bash
+./deploy-scylla-cloud.py create \
+  --name mycluster \
+  --cloud-provider AWS \
+  --region us-east-1
+```
+
+**With vector search enabled:**
+```bash
+./deploy-scylla-cloud.py create \
+  --name vectorcluster \
+  --cloud-provider AWS \
+  --region us-east-1 \
+  --node-count 3 \
+  --node-type i4i.large \
+  --enable-vector-search \
+  --vector-node-count 3 \
+  --vector-node-type i4i.large
+```
+
+**Full configuration example:**
+```bash
+./deploy-scylla-cloud.py create \
+  --name production-cluster \
+  --cloud-provider GCP \
+  --region us-central1 \
+  --node-count 5 \
+  --node-type n2-highmem-8 \
+  --enable-vector-search \
+  --vector-node-count 3 \
+  --vector-node-type n2-highmem-4 \
+  --scylla-version "5.2.0" \
+  --cidr-block "10.0.0.0/16" \
+  --enable-dns \
+  --enable-vpc-peering
+```
+
+### Check Cluster Status
+
+```bash
+./deploy-scylla-cloud.py status --name mycluster
+```
+
+### Get Connection Information
+
+```bash
+./deploy-scylla-cloud.py info --name mycluster
+```
+
+Output includes:
+- Cluster ID and status
+- Connection endpoints
+- Credentials (if available)
+- Port numbers
+
+### List All Clusters
+
+```bash
+./deploy-scylla-cloud.py list
+```
+
+### Destroy a Cluster
+
+**With confirmation prompt:**
+```bash
+./deploy-scylla-cloud.py destroy --name mycluster
+```
+
+**Skip confirmation (use with caution):**
+```bash
+./deploy-scylla-cloud.py destroy --name mycluster --force
+```
+
+## Command Reference
+
+### Global Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--api-key` | ScyllaDB Cloud API key | `SCYLLA_CLOUD_API_KEY` env var |
+| `--format` | Output format: `text` or `json` | `text` |
+
+### Create Command
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--name` | Cluster name (required) | - |
+| `--cloud-provider` | Cloud provider: `AWS` or `GCP` | `AWS` |
+| `--region` | Cloud region | `us-east-1` |
+| `--node-count` | Number of ScyllaDB nodes (min: 3) | `3` |
+| `--node-type` | Instance type for ScyllaDB nodes | `i4i.large` |
+| `--enable-vector-search` | Enable vector search | `False` |
+| `--vector-node-count` | Number of vector search nodes | `3` |
+| `--vector-node-type` | Instance type for vector nodes | `i4i.large` |
+| `--scylla-version` | ScyllaDB version | Latest |
+| `--cidr-block` | VPC CIDR block | Auto |
+| `--enable-dns` | Enable DNS | `False` |
+| `--enable-vpc-peering` | Enable VPC peering | `False` |
+
+### Destroy Command
+
+| Option | Description |
+|--------|-------------|
+| `--name` | Cluster name (required) |
+| `--force` | Skip confirmation prompt |
+
+### Status Command
+
+| Option | Description |
+|--------|-------------|
+| `--name` | Cluster name (required) |
+
+### Info Command
+
+| Option | Description |
+|--------|-------------|
+| `--name` | Cluster name (required) |
+
+### List Command
+
+No additional options required.
+
+## Output Formats
+
+### Text Format (Default)
+
+Human-readable output suitable for terminal use:
+
+```
+Cluster: mycluster
+ID: 12345678-1234-1234-1234-123456789abc
+Status: ACTIVE
+Cloud Provider: AWS
+Region: us-east-1
+Node Count: 3
+Vector Search: Enabled
+  Vector Node Count: 3
+```
+
+### JSON Format
+
+Structured output for scripting and automation:
+
+```bash
+./deploy-scylla-cloud.py status --name mycluster --format json
+```
+
+```json
+{
+  "id": "12345678-1234-1234-1234-123456789abc",
+  "name": "mycluster",
+  "status": "ACTIVE",
+  "cloudProvider": "AWS",
+  "region": "us-east-1",
+  "nodeCount": 3,
+  "vectorSearch": {
+    "enabled": true,
+    "nodeCount": 3
+  }
+}
+```
+
+## State Management
+
+The tool maintains a local state file at `~/.scylla-clusters.json`:
+
+```json
+{
+  "clusters": {
+    "mycluster": {
+      "cluster_id": "12345678-1234-1234-1234-123456789abc",
+      "name": "mycluster",
+      "cloud_provider": "AWS",
+      "region": "us-east-1",
+      "created_at": "2026-01-18 10:30:00",
+      "config": {
+        "name": "mycluster",
+        "cloudProvider": "AWS",
+        "region": "us-east-1",
+        "nodeCount": 3,
+        "nodeType": "i4i.large",
+        "vectorSearch": {
+          "enabled": true,
+          "nodeCount": 3,
+          "nodeType": "i4i.large"
+        }
+      }
+    }
+  }
+}
+```
+
+## Common Workflows
+
+### Quick Development Cluster
+
+```bash
+# Create minimal cluster
+./deploy-scylla-cloud.py create --name dev-cluster
+
+# Check when ready
+./deploy-scylla-cloud.py status --name dev-cluster
+
+# Get connection info
+./deploy-scylla-cloud.py info --name dev-cluster
+
+# Clean up when done
+./deploy-scylla-cloud.py destroy --name dev-cluster --force
+```
+
+### Production Cluster with Vector Search
+
+```bash
+# Create production-ready cluster
+./deploy-scylla-cloud.py create \
+  --name prod-vectordb \
+  --cloud-provider AWS \
+  --region us-east-1 \
+  --node-count 5 \
+  --node-type i4i.2xlarge \
+  --enable-vector-search \
+  --vector-node-count 3 \
+  --vector-node-type i4i.xlarge \
+  --enable-dns \
+  --enable-vpc-peering
+
+# Monitor status until active
+./deploy-scylla-cloud.py status --name prod-vectordb
+
+# Export connection info for application
+./deploy-scylla-cloud.py info --name prod-vectordb --format json > connection.json
+```
+
+### Scripting Example
+
+```bash
+#!/bin/bash
+
+# Create cluster
+./deploy-scylla-cloud.py create \
+  --name test-cluster \
+  --enable-vector-search \
+  --format json > cluster.json
+
+# Extract cluster ID
+CLUSTER_ID=$(jq -r '.id' cluster.json)
+echo "Cluster ID: $CLUSTER_ID"
+
+# Wait for cluster to be ready
+while true; do
+  STATUS=$(./deploy-scylla-cloud.py status --name test-cluster --format json | jq -r '.status')
+  echo "Status: $STATUS"
+  
+  if [ "$STATUS" = "ACTIVE" ]; then
+    echo "Cluster is ready!"
+    break
+  fi
+  
+  sleep 30
+done
+
+# Get connection info
+./deploy-scylla-cloud.py info --name test-cluster --format json > connection.json
+```
+
+## Error Handling
+
+The tool follows these error handling principles:
+
+1. **Validation Errors**: Caught early with clear messages
+2. **API Errors**: HTTP errors from ScyllaDB Cloud API are displayed with response details
+3. **Failed Resources**: Left in place for manual inspection (no automatic cleanup)
+4. **State Consistency**: Local state always reflects attempted operations
+
+## Instance Types
+
+### AWS Instance Types
+- `i4i.large` - 2 vCPUs, 16 GB RAM (default)
+- `i4i.xlarge` - 4 vCPUs, 32 GB RAM
+- `i4i.2xlarge` - 8 vCPUs, 64 GB RAM
+- `i4i.4xlarge` - 16 vCPUs, 128 GB RAM
+
+### GCP Instance Types
+- `n2-highmem-2` - 2 vCPUs, 16 GB RAM
+- `n2-highmem-4` - 4 vCPUs, 32 GB RAM
+- `n2-highmem-8` - 8 vCPUs, 64 GB RAM
+- `n2-highmem-16` - 16 vCPUs, 128 GB RAM
+
+## Regions
+
+### AWS Regions
+- `us-east-1` (default)
+- `us-west-2`
+- `eu-west-1`
+- `ap-southeast-1`
+
+### GCP Regions
+- `us-central1`
+- `us-east1`
+- `europe-west1`
+- `asia-southeast1`
+
+Check the [ScyllaDB Cloud documentation](https://cloud.docs.scylladb.com) for the latest supported regions and instance types.
+
+## Troubleshooting
+
+### API Key Issues
+```
+✗ Error: API key required. Use --api-key or set SCYLLA_CLOUD_API_KEY
+```
+**Solution**: Set the `SCYLLA_CLOUD_API_KEY` environment variable or use `--api-key`.
+
+### Cluster Already Exists
+```
+✗ Error: Cluster 'mycluster' already exists in local state
+```
+**Solution**: Use a different name or destroy the existing cluster first.
+
+### Minimum Node Count
+```
+✗ Error: Minimum node count is 3
+```
+**Solution**: ScyllaDB Cloud requires at least 3 nodes for high availability.
+
+### HTTP Errors
+```
+✗ API Error: 401 Client Error: Unauthorized
+```
+**Solution**: Verify your API key is valid and has the necessary permissions.
+
+## Integration with ai_agent_with_cache.py
+
+After creating a cluster with vector search, use the connection information in the main AI agent:
+
+```bash
+# Create cluster and get connection info
+./deploy-scylla-cloud.py create --name ai-cache --enable-vector-search
+./deploy-scylla-cloud.py info --name ai-cache --format json > connection.json
+
+# Extract connection details
+SCYLLA_HOST=$(jq -r '.connection.host' connection.json)
+SCYLLA_USER=$(jq -r '.connection.username' connection.json)
+SCYLLA_PASSWORD=$(jq -r '.connection.password' connection.json)
+
+# Use with the AI agent
+cd ..
+./ai_agent_with_cache.py \
+  --prompt "Your prompt here" \
+  --with-cache scylla \
+  --scylla-contact-points "$SCYLLA_HOST" \
+  --scylla-user "$SCYLLA_USER" \
+  --scylla-password "$SCYLLA_PASSWORD"
+```
+
+## API Reference
+
+This tool uses the ScyllaDB Cloud REST API. For detailed API documentation, see:
+- [ScyllaDB Cloud API Documentation](https://cloud.docs.scylladb.com/stable/api.html)
+- [Cluster Management API](https://cloud.docs.scylladb.com/stable/api.html#tag/Cluster)
+
+## License
+
+[Specify your license here]

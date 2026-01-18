@@ -1,0 +1,2 @@
+# HTTP library for REST API calls
+requests>=2.31.0

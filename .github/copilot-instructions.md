@@ -7,6 +7,10 @@ This is a Python CLI tool that provides an AI agent interface with semantic cach
 - **ScyllaDB Cloud** for vector-based semantic caching
 - **SentenceTransformers** for generating embeddings
 
+The project consists of two main components:
+1. **Main AI Agent** (`ai_agent_with_cache.py`) - Queries Claude with optional semantic caching
+2. **ScyllaDB Cloud Management** (`scylla-cloud/deploy-scylla-cloud.py`) - Manages ScyllaDB Cloud clusters
+
 ## Key Architecture Patterns
 
 ### 1. Conditional Caching
@@ -179,16 +183,93 @@ value = (
 
 - Never log or print API keys or passwords
 - Use secure connections to ScyllaDB (TLS)
-- Validate and sanitize user inputs
-- Consider implementing rate limiting
-- Be cautious with caching sensitive information
+- VScyllaDB Cloud Management Tool
+
+### Location
+The `scylla-cloud/` subdirectory contains tooling for managing ScyllaDB Cloud clusters.
+
+### Purpose
+Provides a command-line interface for:
+- Creating clusters with vector search support
+- Destroying clusters
+- Checking cluster status
+- Retrieving connection information
+- Managing local state of deployed clusters
+
+### Architecture
+- **Subcommand-based CLI**: Uses `create`, `destroy`, `status`, `info`, `list` subcommands
+- **State Management**: Stores cluster information in `~/.scylla-clusters.json`
+- **API Client**: Wraps ScyllaDB Cloud REST API (`https://api.cloud.scylladb.com`)
+- **Output Formats**: Supports both human-readable text and JSON output
+
+### Key Components
+
+#### `ScyllaCloudClient` Class
+- Handles all REST API interactions
+- Methods for cluster CRUD operations
+- Manages authentication headers
+
+#### `StateManager` Class
+- Persists cluster information locally
+- Maps cluster names to IDs and configuration
+- Ensures state consistency across operations
+
+### Configuration Priority
+Same as main tool:
+1. Command-line arguments (highest)
+2. Environment variables
+3. Default values (lowest)
+
+### Vector Search Support
+- Clusters can be created with vector search enabled via `--enable-vector-search`
+- Separate configuration for vector search nodes (count and instance type)
+- Required for the semantic caching feature in the main AI agent
+
+### Integration with Main Tool
+The deployment tool creates clusters that are then used by `ai_agent_with_cache.py`:
+1. Create cluster with `deploy-scylla-cloud.py create --enable-vector-search`
+2. Retrieve connection info with `deploy-scylla-cloud.py info`
+3. Use connection details in `ai_agent_with_cache.py --scylla-contact-points ...`
+
+### Error Handling
+- Failed operations leave resources in place for inspection
+- Clear error messages with HTTP response details
+- State remains consistent even on failures
+
+### Testing Recommendations for ScyllaDB Cloud Tool
+- [ ] Test cluster creation with minimal configuration
+- [ ] Test cluster creation with vector search enabled
+- [ ] Test cluster creation with full configuration options
+- [ ] Verify state file is created and updated correctly
+- [ ] Test destroy with and without --force flag
+- [ ] Test status command with active and pending clusters
+- [ ] Test info command output formats
+- [ ] Test list command with empty and populated state
+- [ ] Verify API key validation
+- [ ] Test with invalid cluster names
+- [ ] Verify minimum node count validation (3 nodes)
 
 ## Future Enhancement Ideas
 
+### Main AI Agent
 - Support for multiple cache backends (Redis, PostgreSQL + pgvector)
 - Streaming responses for long Claude outputs
 - Cache analytics and statistics
 - Automatic cache warming
+- Similarity threshold configuration
+- Cache expiration policies
+- Multi-turn conversation support
+- Prompt templates and variables
+
+### ScyllaDB Cloud Tool
+- Wait/poll for cluster to become active
+- Cluster backup and restore commands
+- Cost estimation before cluster creation
+- Bulk operations (create/destroy multiple clusters)
+- Configuration templates/presets
+- Cluster scaling (add/remove nodes)
+- Monitoring and metrics retrieval
+- Support for other ScyllaDB Cloud features (VPC peering, etc.)
 - Similarity threshold configuration
 - Cache expiration policies
 - Multi-turn conversation support

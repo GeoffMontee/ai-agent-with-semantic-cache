@@ -11,6 +11,15 @@ A command-line utility that uses Anthropic's Claude AI with optional semantic ca
 - 🔧 **Customizable Models**: Configure both Claude and SentenceTransformer models
 - 📊 **Cache Control**: Enable/disable caching on demand
 
+## Project Structure
+
+The project consists of two main components:
+
+1. **AI Agent** (`ai_agent_with_cache.py`) - Main CLI tool for querying Claude with semantic caching
+2. **ScyllaDB Cloud Management** (`scylla-cloud/`) - Deployment tool for managing ScyllaDB Cloud clusters
+   - `deploy-scylla-cloud.py` - Create, destroy, and manage clusters with vector search
+   - See [scylla-cloud/README.md](scylla-cloud/README.md) for detailed documentation
+
 ## Requirements
 
 - Python 3.8+
@@ -42,6 +51,32 @@ export SCYLLA_CONTACT_POINTS="your-scylla-host.com"
 export SCYLLA_USER="your-username"
 export SCYLLA_PASSWORD="your-password"
 ```
+
+## Deploying a ScyllaDB Cloud Cluster
+
+Before using semantic caching, you need a ScyllaDB Cloud cluster with vector search enabled. Use the included deployment tool:
+
+```bash
+cd scylla-cloud
+
+# Set your ScyllaDB Cloud API key
+export SCYLLA_CLOUD_API_KEY="your-cloud-api-key"
+
+# Create a cluster with vector search
+./deploy-scylla-cloud.py create \
+  --name my-vector-cache \
+  --enable-vector-search \
+  --cloud-provider AWS \
+  --region us-east-1
+
+# Check status
+./deploy-scylla-cloud.py status --name my-vector-cache
+
+# Get connection information
+./deploy-scylla-cloud.py info --name my-vector-cache --format json
+```
+
+For detailed documentation on the deployment tool, see [scylla-cloud/README.md](scylla-cloud/README.md).
 
 ## Usage
 
@@ -204,7 +239,7 @@ ValueError: ANTHROPIC_API_KEY must be set either via --anthropic-api-key or as a
 ```
 NoHostAvailable: Unable to connect to any servers
 ```
-**Solution**: Verify your ScyllaDB contact points, credentials, and network connectivity.
+**Solution**: Verify your ScyllaDB contact points, credentials, and network connectivity. If using ScyllaDB Cloud, ensure your cluster is active using `./scylla-cloud/deploy-scylla-cloud.py status --name your-cluster`.
 
 ### Vector Index Not Ready
 If you see errors about the vector index, the tool waits 2 seconds for index initialization. For larger databases, you may need to increase this delay in the code.
