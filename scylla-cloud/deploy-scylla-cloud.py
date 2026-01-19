@@ -297,6 +297,13 @@ def cmd_create(args):
         "broadcastType": args.broadcast_type,
         "replicationFactor": args.replication_factor,
         "tablets": "false" if args.disable_tablets else "enforced",
+        "allowedIPs": args.allowed_ips,
+        "scyllaVersion": args.scylla_version or os.getenv("SCYLLA_VERSION", "2025.4.1"),
+        "accountCredentialId": args.account_credential_id if args.account_credential_id is not None else int(os.getenv("SCYLLA_CLOUD_ACCOUNT_CREDENTIAL_ID", "0")),
+        "alternatorWriteIsolation": args.alternator_write_isolation or os.getenv("SCYLLA_CLOUD_ALTERNATOR_WRITE_ISOLATION", "only_rmw_uses_lwt"),
+        "freeTier": args.free_tier or os.getenv("SCYLLA_CLOUD_FREE_TIER", "false").lower() == "true",
+        "promProxy": args.prometheus_proxy or os.getenv("SCYLLA_CLOUD_PROMETHEUS_PROXY", "false").lower() == "true",
+        "userApiInterface": args.user_api or os.getenv("SCYLLA_CLOUD_USER_API", "CQL"),
     }
     
     # Add vector search configuration if enabled
@@ -307,10 +314,6 @@ def cmd_create(args):
         }
     
     # Add optional parameters
-    if args.scylla_version:
-        config["scyllaVersion"] = args.scylla_version
-    if args.allowed_ips:
-        config["allowedIPs"] = args.allowed_ips
     if args.enable_dns:
         config["enableDns"] = args.enable_dns
     if args.enable_vpc_peering:
@@ -625,7 +628,8 @@ def main():
         "--allowed-ips",
         type=str,
         nargs="*",
-        help="Allowed IP addresses (optional, space-separated list)"
+        default=["0.0.0.0/0"],
+        help="Allowed IP addresses (default: 0.0.0.0/0, space-separated list)"
     )
     create_parser.add_argument(
         "--replication-factor",
@@ -641,7 +645,36 @@ def main():
     create_parser.add_argument(
         "--scylla-version",
         type=str,
-        help="ScyllaDB version (optional)"
+        default="2025.4.1",
+        help="ScyllaDB version (default: 2025.4.1, or set SCYLLA_VERSION env var)"
+    )
+    create_parser.add_argument(
+        "--account-credential-id",
+        type=int,
+        default=0,
+        help="Account credential ID (default: 0, or set SCYLLA_CLOUD_ACCOUNT_CREDENTIAL_ID env var)"
+    )
+    create_parser.add_argument(
+        "--alternator-write-isolation",
+        type=str,
+        default="only_rmw_uses_lwt",
+        help="Alternator write isolation (default: only_rmw_uses_lwt, or set SCYLLA_CLOUD_ALTERNATOR_WRITE_ISOLATION env var)"
+    )
+    create_parser.add_argument(
+        "--free-tier",
+        action="store_true",
+        help="Enable free tier (default: false, or set SCYLLA_CLOUD_FREE_TIER env var)"
+    )
+    create_parser.add_argument(
+        "--prometheus-proxy",
+        action="store_true",
+        help="Enable Prometheus proxy (default: false, or set SCYLLA_CLOUD_PROMETHEUS_PROXY env var)"
+    )
+    create_parser.add_argument(
+        "--user-api",
+        type=str,
+        default="CQL",
+        help="User API interface (default: CQL, or set SCYLLA_CLOUD_USER_API env var)"
     )
     create_parser.add_argument(
         "--enable-dns",

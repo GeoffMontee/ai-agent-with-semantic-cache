@@ -244,7 +244,13 @@ Same as main tool:
   - `cidrBlock`: Required, defaults to 192.168.1.0/24
   - `replicationFactor`: Defaults to 3
   - `tablets`: "enforced" by default, "false" if disabled
-  - `allowedIPs`: Optional list of allowed IP addresses
+  - `allowedIPs`: List of allowed IP addresses (default: ["0.0.0.0/0"])
+  - `scyllaVersion`: ScyllaDB version (default: "2025.4.1")
+  - `accountCredentialId`: Account credential ID (default: 0)
+  - `alternatorWriteIsolation`: Alternator write isolation (default: "only_rmw_uses_lwt")
+  - `freeTier`: Boolean for free tier (default: false)
+  - `promProxy`: Boolean for Prometheus proxy (default: false)
+  - `userApiInterface`: User API interface (default: "CQL")
 - **Vector Search**: Entire object omitted when disabled (not `enabled: false`)
 - **API Endpoints Used**:
   - `/deployment/cloud-providers` - Get cloud provider list
@@ -271,7 +277,9 @@ The deployment tool creates clusters that are then used by `ai_agent_with_cache.
 - [ ] Test ID lookup for different regions
 - [ ] Test ID lookup for different instance types
 - [ ] Test with invalid cloud provider/region/instance type names
-- [ ] Test all new options: --broadcast-type, --cidr-block, --allowed-ips, --replication-factor, --disable-tablets
+- [ ] Test all configuration options: --broadcast-type, --cidr-block, --allowed-ips, --replication-factor, --disable-tablets, --scylla-version, --account-credential-id, --alternator-write-isolation, --free-tier, --prometheus-proxy, --user-api
+- [ ] Verify all options have corresponding environment variables
+- [ ] Verify default values are applied correctly
 - [ ] Verify state file is created and updated correctly
 - [ ] Test destroy with and without --force flag
 - [ ] Test status command with active and pending clusters

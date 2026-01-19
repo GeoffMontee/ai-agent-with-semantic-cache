@@ -79,8 +79,12 @@ This creates a cluster with:
 - AWS cloud provider in us-east-1 region
 - PUBLIC broadcast type
 - CIDR block: 192.168.1.0/24
+- Allowed IPs: 0.0.0.0/0 (all IPs)
 - Replication factor: 3
 - Tablets enabled
+- ScyllaDB version: 2025.4.1
+- User API: CQL
+- Alternator write isolation: only_rmw_uses_lwt
 
 The tool automatically looks up the cloud provider ID, region ID, and instance type IDs from the ScyllaDB Cloud API.
 
@@ -112,7 +116,10 @@ The tool automatically looks up the cloud provider ID, region ID, and instance t
   --cidr-block "10.0.0.0/16" \
   --allowed-ips "203.0.113.0/24" "198.51.100.0/24" \
   --replication-factor 3 \
-  --scylla-version "5.2.0" \
+  --scylla-version "2025.4.1" \
+  --account-credential-id 0 \
+  --alternator-write-isolation "only_rmw_uses_lwt" \
+  --user-api "CQL" \
   --enable-dns \
   --enable-vpc-peering
 ```
@@ -193,10 +200,15 @@ This command is useful for finding your account ID when you need to create a new
 | `--vector-node-type` | Instance type for vector nodes | `i4i.large` |
 | `--broadcast-type` | Broadcast type: `PUBLIC` or `PRIVATE` | `PUBLIC` |
 | `--cidr-block` | VPC CIDR block | `192.168.1.0/24` |
-| `--allowed-ips` | Allowed IP addresses (space-separated) | None |
+| `--allowed-ips` | Allowed IP addresses (space-separated) | `0.0.0.0/0` |
 | `--replication-factor` | Replication factor | `3` |
 | `--disable-tablets` | Disable tablets (enabled by default) | `False` |
-| `--scylla-version` | ScyllaDB version | Latest |
+| `--scylla-version` | ScyllaDB version | `2025.4.1` |
+| `--account-credential-id` | Account credential ID | `0` |
+| `--alternator-write-isolation` | Alternator write isolation | `only_rmw_uses_lwt` |
+| `--free-tier` | Enable free tier | `False` |
+| `--prometheus-proxy` | Enable Prometheus proxy | `False` |
+| `--user-api` | User API interface | `CQL` |
 | `--enable-dns` | Enable DNS | `False` |
 | `--enable-vpc-peering` | Enable VPC peering | `False` |
 
