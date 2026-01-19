@@ -70,9 +70,9 @@ class ScyllaCloudClient:
         
         return result
     
-    def get_cluster(self, cluster_id: str) -> Dict[str, Any]:
+    def get_cluster(self, account_id: str, cluster_id: str) -> Dict[str, Any]:
         """Get cluster details by ID."""
-        url = f"{API_BASE_URL}/cluster/v1/clusters/{cluster_id}"
+        url = f"{API_BASE_URL}/account/{account_id}/cluster/{cluster_id}"
         response = requests.get(url, headers=self.headers)
         response.raise_for_status()
         return response.json()
@@ -91,15 +91,15 @@ class ScyllaCloudClient:
         response.raise_for_status()
         return response.json()
     
-    def delete_cluster(self, cluster_id: str) -> None:
+    def delete_cluster(self, account_id: str, cluster_id: str) -> None:
         """Delete a cluster by ID."""
-        url = f"{API_BASE_URL}/cluster/v1/clusters/{cluster_id}"
+        url = f"{API_BASE_URL}/account/{account_id}/cluster/{cluster_id}"
         response = requests.delete(url, headers=self.headers)
         response.raise_for_status()
     
-    def get_connection_info(self, cluster_id: str) -> Dict[str, Any]:
+    def get_connection_info(self, account_id: str, cluster_id: str) -> Dict[str, Any]:
         """Get connection information for a cluster."""
-        cluster = self.get_cluster(cluster_id)
+        cluster = self.get_cluster(account_id, cluster_id)
         return {
             "cluster_id": cluster_id,
             "name": cluster.get("name"),
@@ -464,6 +464,11 @@ def cmd_destroy(args):
         print(f"✗ Error: No cluster ID found for '{args.name}'", file=sys.stderr)
         sys.exit(1)
     
+    account_id = cluster_data.get("account_id")
+    if not account_id:
+        print(f"✗ Error: No account ID found for '{args.name}'", file=sys.stderr)
+        sys.exit(1)
+    
     try:
         if not args.force:
             confirm = input(f"Are you sure you want to destroy cluster '{args.name}' ({cluster_id})? [y/N]: ")
@@ -472,7 +477,7 @@ def cmd_destroy(args):
                 return
         
         print(f"Destroying cluster '{args.name}' ({cluster_id})...")
-        client.delete_cluster(cluster_id)
+        client.delete_cluster(account_id, cluster_id)
         
         # Remove from state
         state_mgr.remove_cluster(args.name)
@@ -506,8 +511,13 @@ def cmd_status(args):
         print(f"✗ Error: No cluster ID found for '{args.name}'", file=sys.stderr)
         sys.exit(1)
     
+    account_id = cluster_data.get("account_id")
+    if not account_id:
+        print(f"✗ Error: No account ID found for '{args.name}'", file=sys.stderr)
+        sys.exit(1)
+    
     try:
-        result = client.get_cluster(cluster_id)
+        result = client.get_cluster(account_id, cluster_id)
         
         if args.format == "text":
             print(f"Cluster: {args.name}")
@@ -548,8 +558,13 @@ def cmd_info(args):
         print(f"✗ Error: No cluster ID found for '{args.name}'", file=sys.stderr)
         sys.exit(1)
     
+    account_id = cluster_data.get("account_id")
+    if not account_id:
+        print(f"✗ Error: No account ID found for '{args.name}'", file=sys.stderr)
+        sys.exit(1)
+    
     try:
-        result = client.get_connection_info(cluster_id)
+        result = client.get_connection_info(account_id, cluster_id)
         
         if args.format == "text":
             print(f"Connection Information for '{args.name}':")
