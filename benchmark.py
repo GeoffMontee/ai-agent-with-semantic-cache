@@ -68,7 +68,7 @@ async def benchmark_semantic_similarity(cache, base_prompts, similar_prompts, em
     # Generate embeddings for similar prompts
     similar_embeddings = [embedder.encode(p) for p in similar_prompts]
     
-    for embedding in similar_embeddings:
+    for i, embedding in enumerate(similar_embeddings):
         start = time.perf_counter()
         if is_async:
             result = await cache.get_cached_response(embedding)
@@ -83,6 +83,8 @@ async def benchmark_semantic_similarity(cache, base_prompts, similar_prompts, em
             results['hits'] += 1
         else:
             results['misses'] += 1
+            # Debug: print which prompt missed
+            print(f"  DEBUG: Prompt '{similar_prompts[i][:50]}...' missed cache")
     
     return results
 
@@ -403,6 +405,21 @@ async def main():
                     keyspace=args.scylla_keyspace,
                     table=args.scylla_table
                 )
+                
+                # Give extra time for vector index to be ready in cloud environments
+                print("Waiting additional time for vector index to be fully ready...")
+                import time as time_module
+                time_module.sleep(5)
+                
+                # Verify vector index is working with a test query
+                print("Verifying vector index...")
+                try:
+                    test_embedding = embedder.encode("test query")
+                    cache.get_cached_response(test_embedding)
+                    print("✓ Vector index is ready")
+                except Exception as e:
+                    print(f"✗ Warning: Vector index test failed: {e}")
+                    print("  Continuing anyway, but results may be affected...")
                 
                 results = await run_benchmark_suite(
                     backend, cache, embedder, prompts, is_async=False

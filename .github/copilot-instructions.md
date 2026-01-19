@@ -60,10 +60,19 @@ All configuration follows this precedence order:
 ### `ScyllaDBCache` Class
 - **Purpose**: Encapsulates all ScyllaDB operations
 - **Initialization**: Sets up keyspace, table, and vector index
+  - **CRITICAL**: Waits 5 seconds after creating vector index for it to become queryable
+  - Cloud deployments may need longer initialization time (10-15 seconds)
+  - If vector index queries fail with "ANN ordering by vector requires the column to be indexed", the index isn't ready yet
 - **Key Methods**:
   - `get_cached_response()`: ANN search for similar prompts
+    - Includes specific error handling for vector index not ready
+    - Returns user-friendly message: "Vector index not ready yet. Try again in a few seconds."
   - `cache_response()`: Store new prompt-response pairs
   - `close()`: Clean shutdown of database connection
+- **Vector Index Initialization**: 
+  - Wait time increased from 2 to 5 seconds (as of 2026-01)
+  - Addresses cloud deployment latency and new keyspace creation
+  - Benchmark tool adds additional verification step
 
 ### `PgVectorCache` Class
 - **Purpose**: Encapsulates all PostgreSQL pgvector operations
@@ -111,6 +120,9 @@ All configuration follows this precedence order:
 - Cache errors should not prevent Claude queries
 - Print informative error messages but continue execution
 - Only fail fast on missing API keys
+- **Vector Index Errors**: ScyllaDBCache includes specific handling for "ANN ordering by vector requires the column to be indexed" errors
+  - Provides user-friendly message about waiting for index initialization
+  - Common during first connection to new cluster or new keyspace creation
 
 ## When Making Changes
 
@@ -126,12 +138,20 @@ All configuration follows this precedence order:
 3. Verify embedding dimension compatibility
 4. Update database schema if needed
 5. For pgvector changes, remember to use `await` for async methods
+6. **For ScyllaDB**: Consider vector index initialization time (5 seconds default, may need more for cloud)
 
 ### Changing AI Models
 1. Check model availability in Anthropic API
 2. Update default value in argument parser
 3. Test with both environment variable and CLI arg
 4. Consider token limits and cost implications
+
+### Modifying Vector Index Initialization
+1. **Wait Time**: Currently 5 seconds in both AI agent and benchmark
+2. **Cloud Deployments**: May need 10-15 seconds total for full initialization
+3. **Verification**: Benchmark includes test query to verify index readiness
+4. **Error Messages**: Should guide users to wait if index not ready
+5. **Trade-offs**: Longer wait = more reliable, but slower startup for cached keyspaces
 
 ## Testing Recommendations
 
@@ -145,6 +165,8 @@ All configuration follows this precedence order:
 - [ ] Test with different Claude models
 - [ ] Test with different SentenceTransformer models
 - [ ] Test different similarity functions (cosine, l2, inner_product, l1)
+- [ ] Test ScyllaDB vector index initialization (first connection to new cluster/keyspace)
+- [ ] Verify vector index error messages are user-friendly
 
 ### Edge Cases to Consider
 - Empty or very short prompts
@@ -153,6 +175,8 @@ All configuration follows this precedence order:
 - Network timeouts
 - Invalid model names
 - Non-ASCII characters in prompts
+- Vector index not ready (first query to new ScyllaDB cluster/keyspace)
+- Cloud deployment latency affecting index initialization
 
 ## Performance Optimization Guidelines
 

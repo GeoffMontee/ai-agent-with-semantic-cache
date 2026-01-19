@@ -62,9 +62,9 @@ class ScyllaDBCache:
             }}
         """)
         
-        # Wait a moment for the index to be ready
+        # Wait for the index to be ready (especially important for cloud deployments)
         print("Waiting for vector index to initialize...")
-        time.sleep(2)
+        time.sleep(5)
 
     def get_cached_response(self, embedding, threshold=0.95):
         """
@@ -98,7 +98,11 @@ class ScyllaDBCache:
                 print(f"✓ Cache hit!")
                 return row.response
         except Exception as e:
-            print(f"Cache lookup error: {e}")
+            # Check if this is a vector index error
+            if "ANN ordering by vector requires the column to be indexed" in str(e):
+                print(f"✗ Vector index not ready yet. Try again in a few seconds.")
+            else:
+                print(f"Cache lookup error: {e}")
         
         return None
 

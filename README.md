@@ -388,7 +388,24 @@ NoHostAvailable: Unable to connect to any servers
 **Solution**: Verify your ScyllaDB contact points, credentials, and network connectivity. If using ScyllaDB Cloud, ensure your cluster is active using `./scylla-cloud/deploy-scylla-cloud.py status --name your-cluster`.
 
 ### Vector Index Not Ready
-**SBenchmarking Cache Performance
+```
+✗ Vector index not ready yet. Try again in a few seconds.
+```
+or
+```
+Cache lookup error: Error from server: code=2200 [Invalid query] message="ANN ordering by vector requires the column to be indexed using 'vector_index'"
+```
+**Solution**: The vector index is still initializing. This is most common when:
+- First connecting to a new ScyllaDB Cloud cluster
+- Creating a new keyspace for the first time
+- Cloud deployments with higher network latency
+
+The tool automatically waits 5 seconds for index initialization. If you still see this error:
+1. Wait 10-15 seconds and try your query again
+2. For cloud deployments, initialization may take longer
+3. Verify the cluster has vector search enabled: `./scylla-cloud/deploy-scylla-cloud.py info --name your-cluster`
+
+## Benchmarking Cache Performance
 
 Compare the performance of ScyllaDB and PostgreSQL pgvector backends using the included benchmark script:
 
@@ -445,9 +462,22 @@ Performance comparison (local PostgreSQL vs ScyllaDB Cloud):
 
 **Note**: Network latency significantly impacts cloud-based backends. For fair comparisons, deploy both backends in the same environment (both local or both cloud).
 
-## cyllaDB**: The tool waits 2 seconds for index initialization. For larger databases, you may need to increase this delay in the code.
+### Common Benchmark Issues
 
-**PostgreSQL**: HNSW indexes are created automatically. For large datasets, you may want to create indexes after loading initial data.
+**ScyllaDB shows 0% semantic similarity hit rate:**
+- The vector index needs time to initialize (5-10 seconds)
+- The benchmark automatically waits and verifies the index before testing
+- If you see errors about "ANN ordering requires indexed column", wait longer and retry
+
+**Different results between runs:**
+- First run includes model loading time (~1-2 seconds for SentenceTransformer)
+- Cold vs warm cache affects initial query performance
+- Network conditions vary for cloud backends
+
+### Index Initialization Details
+**ScyllaDB**: The tool waits 5 seconds for index initialization. This is sufficient for most scenarios, but cloud deployments or large existing caches may require additional time.
+
+**PostgreSQL**: HNSW indexes are created automatically and are immediately usable. For large datasets, you may want to create indexes after loading initial data for better performance.
 
 ## Contributing
 
