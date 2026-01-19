@@ -5,6 +5,7 @@ Supports creating, destroying, checking status, and retrieving connection info.
 """
 
 import argparse
+import ipaddress
 import json
 import os
 import sys
@@ -128,9 +129,17 @@ class ScyllaCloudClient:
         response.raise_for_status()
         return response.json()
     
-    def get_cloud_provider_region(self, cloud_provider_id: int, region_id: int) -> Dict[str, Any]:
-        """Get region details including instance types."""
+    def get_cloud_provider_region(self, cloud_provider_id: int, region_id: int, target: Optional[str] = None) -> Dict[str, Any]:
+        """Get region details including instance types.
+        
+        Args:
+            cloud_provider_id: Cloud provider ID
+            region_id: Region ID
+            target: Optional target parameter (e.g., 'VECTOR_SEARCH' for vector search instance types)
+        """
         url = f"{API_BASE_URL}/deployment/cloud-provider/{cloud_provider_id}/region/{region_id}"
+        if target:
+            url += f"?target={target}"
         response = requests.get(url, headers=self.headers)
         response.raise_for_status()
         return response.json()
@@ -173,9 +182,16 @@ class ScyllaCloudClient:
                 return region['id']
         raise ValueError(f"Region '{region_name}' not found for cloud provider ID {cloud_provider_id}")
     
-    def lookup_instance_type_id(self, cloud_provider_id: int, region_id: int, instance_type_name: str) -> int:
-        """Look up instance type ID by name."""
-        response = self.get_cloud_provider_region(cloud_provider_id, region_id)
+    def lookup_instance_type_id(self, cloud_provider_id: int, region_id: int, instance_type_name: str, target: Optional[str] = None) -> int:
+        """Look up instance type ID by name.
+        
+        Args:
+            cloud_provider_id: Cloud provider ID
+            region_id: Region ID
+            instance_type_name: Instance type name to look up
+            target: Optional target parameter (e.g., 'VECTOR_SEARCH' for vector search instance types)
+        """
+        response = self.get_cloud_provider_region(cloud_provider_id, region_id, target)
         # Handle nested response structure
         if isinstance(response, dict):
             # Extract from nested structure if present
@@ -240,6 +256,22 @@ class StateManager:
         return state["clusters"]
 
 
+def validate_cidr_block(cidr: str, field_name: str):
+    """Validate that CIDR block is /16 or larger (smaller prefix length)."""
+    try:
+        network = ipaddress.ip_network(cidr, strict=False)
+        if network.prefixlen < 16:
+            raise ValueError(
+                f"{field_name} '{cidr}' has prefix length /{network.prefixlen}. "
+                f"Must be /16 or larger (e.g., /16, /17, /24). "
+                f"Larger prefix numbers = smaller networks."
+            )
+    except ValueError as e:
+        if "prefix length" in str(e):
+            raise
+        raise ValueError(f"{field_name} '{cidr}' is not a valid CIDR block: {e}")
+
+
 def output_result(data: Any, format_type: str):
     """Output data in specified format."""
     if format_type == "json":
@@ -294,16 +326,27 @@ def cmd_create(args):
         vector_instance_id = None
         if args.enable_vector_search:
             print(f"Looking up vector instance type ID for '{args.vector_node_type}'...")
-            vector_instance_id = client.lookup_instance_type_id(cloud_provider_id, region_id, args.vector_node_type)
+            vector_instance_id = client.lookup_instance_type_id(cloud_provider_id, region_id, args.vector_node_type, target="VECTOR_SEARCH")
             print(f"  Found vector instance type ID: {vector_instance_id}")
     
     except ValueError as e:
         print(f"✗ Error: {e}", file=sys.stderr)
         sys.exit(1)
     
+    # Validate CIDR blocks
+    try:
+        validate_cidr_block(args.cidr_block, "--cidr-block")
+        for ip in args.allowed_ips:
+            validate_cidr_block(ip, "--allowed-ips")
+    except ValueError as e:
+        print(f"✗ Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    
     # Build cluster configuration
+    free_tier = args.free_tier or os.getenv("SCYLLA_CLOUD_FREE_TIER", "false").lower() == "true"
+    
     config = {
-        "name": args.name,
+        "clusterName": args.name,
         "accountId": args.account_id,
         "cloudProviderId": cloud_provider_id,
         "regionId": region_id,
@@ -315,16 +358,19 @@ def cmd_create(args):
         "tablets": "false" if args.disable_tablets else "enforced",
         "allowedIPs": args.allowed_ips,
         "scyllaVersion": args.scylla_version or os.getenv("SCYLLA_VERSION", "2025.4.1"),
-        "accountCredentialId": args.account_credential_id if args.account_credential_id is not None else int(os.getenv("SCYLLA_CLOUD_ACCOUNT_CREDENTIAL_ID", "0")),
+        "accountCredentialId": args.account_credential_id if args.account_credential_id is not None else int(os.getenv("SCYLLA_CLOUD_ACCOUNT_CREDENTIAL_ID", "3")),
         "alternatorWriteIsolation": args.alternator_write_isolation or os.getenv("SCYLLA_CLOUD_ALTERNATOR_WRITE_ISOLATION", "only_rmw_uses_lwt"),
-        "freeTier": args.free_tier or os.getenv("SCYLLA_CLOUD_FREE_TIER", "false").lower() == "true",
+        "freeTier": free_tier,
         "promProxy": args.prometheus_proxy or os.getenv("SCYLLA_CLOUD_PROMETHEUS_PROXY", "false").lower() == "true",
         "userApiInterface": args.user_api or os.getenv("SCYLLA_CLOUD_USER_API", "CQL"),
         "enableDnsAssociation": args.enable_dns_association or os.getenv("SCYLLA_CLOUD_ENABLE_DNS_ASSOCIATION", "true").lower() == "true",
         "provisioning": args.provisioning or os.getenv("SCYLLA_CLOUD_PROVISIONING", "dedicated-vm"),
-        "pu": args.pu if args.pu is not None else int(os.getenv("SCYLLA_CLOUD_PU", "1")),
-        "expiration": args.expiration or os.getenv("SCYLLA_CLOUD_EXPIRATION", "0"),
     }
+    
+    # Add pu and expiration only for free tier clusters
+    if free_tier:
+        config["pu"] = args.pu if args.pu is not None else int(os.getenv("SCYLLA_CLOUD_PU", "1"))
+        config["expiration"] = args.expiration or os.getenv("SCYLLA_CLOUD_EXPIRATION", "0")
     
     # Add vector search configuration if enabled
     if args.enable_vector_search:
@@ -703,8 +749,8 @@ def main():
     create_parser.add_argument(
         "--account-credential-id",
         type=int,
-        default=0,
-        help="Account credential ID (default: 0, or set SCYLLA_CLOUD_ACCOUNT_CREDENTIAL_ID env var)"
+        default=3,
+        help="Account credential ID (default: 3, or set SCYLLA_CLOUD_ACCOUNT_CREDENTIAL_ID env var)"
     )
     create_parser.add_argument(
         "--alternator-write-isolation",

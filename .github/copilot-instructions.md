@@ -237,29 +237,33 @@ Same as main tool:
   2. Look up region ID from region name using cloud provider ID
   3. Look up instance type IDs from instance type names using cloud provider ID + region ID
 - **Request Body Structure**: Uses correct field names per API documentation
+  - `clusterName` (not name): Cluster name
   - `cloudProviderId`, `regionId`, `instanceId` (not cloudProvider, region, nodeType)
   - `numberOfNodes` (not nodeCount)
   - `vectorSearch.defaultNodes`, `vectorSearch.defaultInstanceTypeId`, `vectorSearch.singleRack` (not nodeCount, nodeType)
   - `broadcastType`: PUBLIC or PRIVATE (default: PUBLIC)
-  - `cidrBlock`: Required, defaults to 192.168.1.0/24
+  - `cidrBlock`: Required, defaults to 192.168.1.0/24, must be /16 or larger
   - `replicationFactor`: Defaults to 3
   - `tablets`: "enforced" by default, "false" if disabled
-  - `allowedIPs`: List of allowed IP addresses (default: ["0.0.0.0/0"])
+  - `allowedIPs`: List of allowed IP addresses (default: ["0.0.0.0/0"]), each must be /16 or larger
   - `scyllaVersion`: ScyllaDB version (default: "2025.4.1")
-  - `accountCredentialId`: Account credential ID (default: 0)
+  - `accountCredentialId`: Account credential ID (default: 3)
   - `alternatorWriteIsolation`: Alternator write isolation (default: "only_rmw_uses_lwt")
   - `freeTier`: Boolean for free tier (default: false)
   - `promProxy`: Boolean for Prometheus proxy (default: false)
   - `userApiInterface`: User API interface (default: "CQL")
   - `enableDnsAssociation`: Boolean for DNS association (default: true)
   - `provisioning`: Provisioning type (default: "dedicated-vm")
-  - `pu`: Processing units (default: 1)
-  - `expiration`: Expiration (default: "0")
+  - `pu`: Processing units (default: 1, only included when freeTier is true)
+  - `expiration`: Expiration (default: "0", only included when freeTier is true)
+- **CIDR Validation**: Both `cidrBlock` and `allowedIPs` must be /16 or larger (larger prefix = smaller network)
 - **Vector Search**: Entire object omitted when disabled (not `enabled: false`)
+- **Vector Instance Type Lookup**: Uses `target=VECTOR_SEARCH` query parameter to get restricted set of vector-compatible instance types
 - **API Endpoints Used**:
   - `/deployment/cloud-providers` - Get cloud provider list
   - `/deployment/cloud-provider/{id}/regions` - Get regions for provider
-  - `/deployment/cloud-provider/{id}/region/{id}` - Get instance types for region
+  - `/deployment/cloud-provider/{id}/region/{id}` - Get instance types for cluster nodes
+  - `/deployment/cloud-provider/{id}/region/{id}?target=VECTOR_SEARCH` - Get instance types for vector search nodes
   - `/account/{accountId}/cluster` - Create cluster
   - `/account/{accountId}/clusters` - List all clusters for account
 

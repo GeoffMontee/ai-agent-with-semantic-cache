@@ -75,7 +75,7 @@ The tool stores cluster information locally in `~/.scylla-clusters.json`. This f
 
 This creates a cluster with:
 - 3 ScyllaDB nodes (i4i.large instances)
-- 1 vector search node (i4i.large instance)
+- 1 vector search node (r7g.medium instance for AWS, n4-highmem-2 for GCP)
 - AWS cloud provider in us-east-1 region
 - PUBLIC broadcast type
 - CIDR block: 192.168.1.0/24
@@ -98,6 +98,7 @@ The tool automatically looks up the cloud provider ID, region ID, and instance t
   --node-count 3 \
   --node-type i4i.large \
   --vector-node-count 3 \
+  --vector-node-type r7g.medium \
   --vector-node-type i4i.large
 ```
 
@@ -197,7 +198,7 @@ This command is useful for finding your account ID when you need to create a new
 | `--node-type` | Instance type for ScyllaDB nodes | `i4i.large` |
 | `--disable-vector-search` | Disable vector search (enabled by default) | `False` |
 | `--vector-node-count` | Number of vector search nodes | `1` |
-| `--vector-node-type` | Instance type for vector nodes | `i4i.large` |
+| `--vector-node-type` | Instance type for vector nodes (AWS: r7g.medium, GCP: n4-highmem-2) | `i4i.large` |
 | `--vector-single-rack` | Enable single rack for vector search | `False` |
 | `--broadcast-type` | Broadcast type: `PUBLIC` or `PRIVATE` | `PUBLIC` |
 | `--cidr-block` | VPC CIDR block | `192.168.1.0/24` |
@@ -205,17 +206,22 @@ This command is useful for finding your account ID when you need to create a new
 | `--replication-factor` | Replication factor | `3` |
 | `--disable-tablets` | Disable tablets (enabled by default) | `False` |
 | `--scylla-version` | ScyllaDB version | `2025.4.1` |
-| `--account-credential-id` | Account credential ID | `0` |
+| `--account-credential-id` | Account credential ID | `3` |
 | `--alternator-write-isolation` | Alternator write isolation | `only_rmw_uses_lwt` |
 | `--free-tier` | Enable free tier | `False` |
 | `--prometheus-proxy` | Enable Prometheus proxy | `False` |
 | `--user-api` | User API interface | `CQL` |
 | `--enable-dns-association` | Enable DNS association | `True` |
 | `--provisioning` | Provisioning type | `dedicated-vm` |
-| `--pu` | Processing units | `1` |
-| `--expiration` | Expiration | `0` |
+| `--pu` | Processing units (only for free tier) | `1` |
+| `--expiration` | Expiration (only for free tier) | `0` |
 | `--enable-dns` | Enable DNS | `False` |
 | `--enable-vpc-peering` | Enable VPC peering | `False` |
+
+**Notes:**
+- `--cidr-block` and `--allowed-ips` must be /16 or larger (e.g., /16, /17, /24). Larger prefix numbers = smaller networks.
+- `--pu` and `--expiration` are only included in the request when `--free-tier` is enabled.
+- Vector search instance types are validated against the restricted set of vector-compatible instances using the `target=VECTOR_SEARCH` API parameter.
 
 ### Destroy Command
 
