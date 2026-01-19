@@ -158,13 +158,13 @@ class ScyllaCloudClient:
     
     def delete_cluster(self, account_id: str, cluster_id: str) -> None:
         """Delete a cluster by ID."""
-        url = f"{API_BASE_URL}/account/{account_id}/cluster/{cluster_id}"
+        url = f"{API_BASE_URL}/account/{account_id}/cluster/{cluster_id}/delete"
         
         if self.debug:
-            print(f"\n=== DEBUG: DELETE {url} ===")
+            print(f"\n=== DEBUG: POST {url} ===")
             print(f"Headers: {json.dumps({k: v for k, v in self.headers.items() if k != 'Authorization'}, indent=2)}")
         
-        response = requests.delete(url, headers=self.headers)
+        response = requests.post(url, headers=self.headers)
         
         if self.debug:
             print(f"\nResponse Status: {response.status_code}")

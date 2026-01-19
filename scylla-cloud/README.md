@@ -147,6 +147,8 @@ Output includes:
 - Credentials (if available)
 - Port numbers
 
+**Note**: The `info` command automatically resolves request IDs to cluster IDs. If the stored cluster ID is actually a request ID (from an older state file or incomplete creation), the tool will fetch the actual cluster ID and update the state file.
+
 ### List All Clusters
 
 ```bash
@@ -296,10 +298,16 @@ When you create a cluster, the tool performs the following steps:
 3. **Looks up Region ID** from the region name using `/deployment/cloud-provider/{id}/regions` endpoint
 4. **Looks up Instance Type IDs** for both ScyllaDB and vector search nodes using `/deployment/cloud-provider/{id}/region/{id}` endpoint
 5. **Constructs API request** with proper field names and numeric IDs
-6. **Creates cluster** via `/cluster/v1/clusters` endpoint
-7. **Saves cluster info** to local state file (`~/.scylla-clusters.json`)
+6. **Creates cluster** via `/account/{accountId}/cluster` (POST) endpoint
+   - Returns a `requestId` in `data.requestId`, not the actual cluster ID
+7. **Resolves Request ID to Cluster ID** via `/account/{accountId}/cluster/request/{requestId}` (GET) endpoint
+   - Fetches the actual `clusterId` and full cluster details
+8. **Saves cluster info** to local state file (`~/.scylla-clusters.json`)
+   - Stores both `request_id` and `cluster_id` for flexibility
 
 This automatic ID translation means you can use familiar names like "AWS" and "us-east-1" instead of looking up numeric IDs manually.
+
+**Important**: The create operation returns a request ID, not a cluster ID. The tool automatically resolves this to get the actual cluster ID, which is required for subsequent operations like getting connection info or deleting the cluster.
 
 ### API Request Body
 
@@ -645,6 +653,36 @@ cd ..
 
 This tool uses the ScyllaDB Cloud REST API. For detailed API documentation, see:
 - [ScyllaDB Cloud API Documentation](https://cloud.docs.scylladb.com/stable/api.html)
+
+### Key API Endpoints Used
+
+The tool interacts with the following ScyllaDB Cloud API endpoints:
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/deployment/cloud-providers` | GET | List available cloud providers |
+| `/deployment/cloud-provider/{id}/regions` | GET | List regions for a cloud provider |
+| `/deployment/cloud-provider/{id}/region/{id}` | GET | List instance types for cluster nodes |
+| `/deployment/cloud-provider/{id}/region/{id}?target=VECTOR_SEARCH` | GET | List instance types for vector search nodes |
+| `/account/{accountId}/cluster` | POST | Create a new cluster (returns request ID) |
+| `/account/{accountId}/cluster/request/{requestId}` | GET | Resolve request ID to cluster ID and details |
+| `/account/{accountId}/cluster/{clusterId}` | GET | Get cluster details |
+| `/account/{accountId}/cluster/{clusterId}/delete` | POST | Delete a cluster |
+| `/account/{accountId}/clusters` | GET | List all clusters |
+| `/account/default` | GET | Get account information |
+
+**Important Notes:**
+- **Cluster Creation**: Returns a `requestId`, not the actual `clusterId`. Use the `/cluster/request/{requestId}` endpoint to resolve to the actual cluster ID.
+- **Cluster Deletion**: Uses POST method to the `/delete` endpoint, not a DELETE method to the cluster endpoint.
+- **Response Format**: Most responses are nested under a `data` key, and cluster details are often nested under `data.cluster`.
+
+### Recent Bug Fixes
+
+**Fixed in 2025-01:**
+1. **Delete Endpoint**: Corrected from `DELETE /cluster/{clusterId}` to `POST /account/{accountId}/cluster/{clusterId}/delete`
+2. **Request ID Resolution**: Added automatic resolution of request IDs to cluster IDs using `/cluster/request/{requestId}` endpoint
+3. **Response Parsing**: Fixed parsing of nested `{"data": {"cluster": {...}}}` structures in cluster info responses
+4. **State Management**: Enhanced to store both `request_id` and `cluster_id` for flexibility
 - [Cluster Management API](https://cloud.docs.scylladb.com/stable/api.html#tag/Cluster)
 
 ## License
