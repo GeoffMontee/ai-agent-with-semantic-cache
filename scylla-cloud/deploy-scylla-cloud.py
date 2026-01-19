@@ -31,7 +31,8 @@ class ScyllaCloudClient:
     
     def create_cluster(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new ScyllaDB cluster with vector search support."""
-        url = f"{API_BASE_URL}/cluster/v1/clusters"
+        account_id = config.get("accountId")
+        url = f"{API_BASE_URL}/account/{account_id}/cluster"
         
         if self.debug:
             print(f"\n=== DEBUG: POST {url} ===")
