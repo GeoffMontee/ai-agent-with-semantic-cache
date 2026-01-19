@@ -98,8 +98,7 @@ The tool automatically looks up the cloud provider ID, region ID, and instance t
   --node-count 3 \
   --node-type i4i.large \
   --vector-node-count 3 \
-  --vector-node-type r7g.medium \
-  --vector-node-type i4i.large
+  --vector-node-type r7g.medium
 ```
 
 **Full configuration example:**
