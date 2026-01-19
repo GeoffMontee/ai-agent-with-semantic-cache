@@ -398,21 +398,32 @@ def cmd_create(args):
         print(f"Creating cluster '{args.name}'...")
         result = client.create_cluster(config)
         
+        # Extract cluster info from nested response structure
+        # Response format: {"data": {"requestId": ..., "fields": {...}}}
+        data = result.get("data", {})
+        cluster_id = data.get("requestId") or result.get("id")
+        fields = data.get("fields", {})
+        
         # Save to state
         cluster_data = {
-            "cluster_id": result.get("id"),
+            "cluster_id": cluster_id,
+            "request_id": data.get("requestId"),
             "name": args.name,
             "account_id": args.account_id,
             "cloud_provider": args.cloud_provider,
             "region": args.region,
             "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "config": config
+            "config": config,
+            "response": data  # Store full response for reference
         }
         state_mgr.add_cluster(args.name, cluster_data)
         
         print(f"✓ Cluster creation initiated")
-        print(f"Cluster ID: {result.get('id')}")
-        print(f"Status: {result.get('status')}")
+        print(f"Request ID: {data.get('requestId')}")
+        if fields:
+            print(f"Cluster Name: {fields.get('clusterName')}")
+            if fields.get('scyllaVersion'):
+                print(f"ScyllaDB Version: {fields['scyllaVersion'].get('version')}")
         print(f"\nState saved to {STATE_FILE}")
         
         output_result(result, args.format)

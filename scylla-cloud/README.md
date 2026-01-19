@@ -58,9 +58,14 @@ export SCYLLA_CLOUD_API_KEY="your-api-key"
 ### State File
 
 The tool stores cluster information locally in `~/.scylla-clusters.json`. This file tracks:
-- Cluster names and IDs
+- Cluster names and request IDs
 - Configuration details
 - Creation timestamps
+- Full API response for reference
+
+The cluster creation API returns a nested response structure with:
+- `requestId`: Used as the cluster identifier
+- `fields`: Contains cluster configuration details (name, version, cloud provider, region, instance type, etc.)
 
 ## Usage
 

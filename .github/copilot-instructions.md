@@ -259,6 +259,25 @@ Same as main tool:
 - **CIDR Validation**: Both `cidrBlock` and `allowedIPs` must be /16 or larger (larger prefix = smaller network)
 - **Vector Search**: Entire object omitted when disabled (not `enabled: false`)
 - **Vector Instance Type Lookup**: Uses `target=VECTOR_SEARCH` query parameter to get restricted set of vector-compatible instance types
+- **Response Structure**: Create cluster returns nested structure:
+  ```json
+  {
+    "data": {
+      "requestId": 123456,
+      "fields": {
+        "clusterName": "...",
+        "scyllaVersion": {"version": "2025.4.0", ...},
+        "cloudProvider": {...},
+        "region": {...},
+        "instance": {...},
+        ...
+      }
+    }
+  }
+  ```
+  - Extract `requestId` from `data.requestId` (used as cluster identifier)
+  - Extract cluster details from `data.fields`
+  - State file stores both `cluster_id` (requestId) and full `response` for reference
 - **API Endpoints Used**:
   - `/deployment/cloud-providers` - Get cloud provider list
   - `/deployment/cloud-provider/{id}/regions` - Get regions for provider
