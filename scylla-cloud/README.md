@@ -198,6 +198,7 @@ This command is useful for finding your account ID when you need to create a new
 | `--disable-vector-search` | Disable vector search (enabled by default) | `False` |
 | `--vector-node-count` | Number of vector search nodes | `1` |
 | `--vector-node-type` | Instance type for vector nodes | `i4i.large` |
+| `--vector-single-rack` | Enable single rack for vector search | `False` |
 | `--broadcast-type` | Broadcast type: `PUBLIC` or `PRIVATE` | `PUBLIC` |
 | `--cidr-block` | VPC CIDR block | `192.168.1.0/24` |
 | `--allowed-ips` | Allowed IP addresses (space-separated) | `0.0.0.0/0` |
@@ -209,6 +210,10 @@ This command is useful for finding your account ID when you need to create a new
 | `--free-tier` | Enable free tier | `False` |
 | `--prometheus-proxy` | Enable Prometheus proxy | `False` |
 | `--user-api` | User API interface | `CQL` |
+| `--enable-dns-association` | Enable DNS association | `True` |
+| `--provisioning` | Provisioning type | `dedicated-vm` |
+| `--pu` | Processing units | `1` |
+| `--expiration` | Expiration | `0` |
 | `--enable-dns` | Enable DNS | `False` |
 | `--enable-vpc-peering` | Enable VPC peering | `False` |
 

@@ -320,13 +320,18 @@ def cmd_create(args):
         "freeTier": args.free_tier or os.getenv("SCYLLA_CLOUD_FREE_TIER", "false").lower() == "true",
         "promProxy": args.prometheus_proxy or os.getenv("SCYLLA_CLOUD_PROMETHEUS_PROXY", "false").lower() == "true",
         "userApiInterface": args.user_api or os.getenv("SCYLLA_CLOUD_USER_API", "CQL"),
+        "enableDnsAssociation": args.enable_dns_association or os.getenv("SCYLLA_CLOUD_ENABLE_DNS_ASSOCIATION", "true").lower() == "true",
+        "provisioning": args.provisioning or os.getenv("SCYLLA_CLOUD_PROVISIONING", "dedicated-vm"),
+        "pu": args.pu if args.pu is not None else int(os.getenv("SCYLLA_CLOUD_PU", "1")),
+        "expiration": args.expiration or os.getenv("SCYLLA_CLOUD_EXPIRATION", "0"),
     }
     
     # Add vector search configuration if enabled
     if args.enable_vector_search:
         config["vectorSearch"] = {
             "defaultNodes": args.vector_node_count,
-            "defaultInstanceTypeId": vector_instance_id
+            "defaultInstanceTypeId": vector_instance_id,
+            "singleRack": args.vector_single_rack or os.getenv("SCYLLA_CLOUD_VECTOR_SINGLE_RACK", "false").lower() == "true"
         }
     
     # Add optional parameters
@@ -654,6 +659,11 @@ def main():
         help="Instance type for vector search nodes (default: i4i.large)"
     )
     create_parser.add_argument(
+        "--vector-single-rack",
+        action="store_true",
+        help="Enable single rack for vector search (default: false, or set SCYLLA_CLOUD_VECTOR_SINGLE_RACK env var)"
+    )
+    create_parser.add_argument(
         "--broadcast-type",
         type=str,
         choices=["PUBLIC", "PRIVATE"],
@@ -717,6 +727,29 @@ def main():
         type=str,
         default="CQL",
         help="User API interface (default: CQL, or set SCYLLA_CLOUD_USER_API env var)"
+    )
+    create_parser.add_argument(
+        "--enable-dns-association",
+        action="store_true",
+        help="Enable DNS association (default: true, or set SCYLLA_CLOUD_ENABLE_DNS_ASSOCIATION env var)"
+    )
+    create_parser.add_argument(
+        "--provisioning",
+        type=str,
+        default="dedicated-vm",
+        help="Provisioning type (default: dedicated-vm, or set SCYLLA_CLOUD_PROVISIONING env var)"
+    )
+    create_parser.add_argument(
+        "--pu",
+        type=int,
+        default=1,
+        help="Processing units (default: 1, or set SCYLLA_CLOUD_PU env var)"
+    )
+    create_parser.add_argument(
+        "--expiration",
+        type=str,
+        default="0",
+        help="Expiration (default: 0, or set SCYLLA_CLOUD_EXPIRATION env var)"
     )
     create_parser.add_argument(
         "--enable-dns",

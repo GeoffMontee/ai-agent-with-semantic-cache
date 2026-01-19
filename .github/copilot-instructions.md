@@ -239,7 +239,7 @@ Same as main tool:
 - **Request Body Structure**: Uses correct field names per API documentation
   - `cloudProviderId`, `regionId`, `instanceId` (not cloudProvider, region, nodeType)
   - `numberOfNodes` (not nodeCount)
-  - `vectorSearch.defaultNodes`, `vectorSearch.defaultInstanceTypeId` (not nodeCount, nodeType)
+  - `vectorSearch.defaultNodes`, `vectorSearch.defaultInstanceTypeId`, `vectorSearch.singleRack` (not nodeCount, nodeType)
   - `broadcastType`: PUBLIC or PRIVATE (default: PUBLIC)
   - `cidrBlock`: Required, defaults to 192.168.1.0/24
   - `replicationFactor`: Defaults to 3
@@ -251,6 +251,10 @@ Same as main tool:
   - `freeTier`: Boolean for free tier (default: false)
   - `promProxy`: Boolean for Prometheus proxy (default: false)
   - `userApiInterface`: User API interface (default: "CQL")
+  - `enableDnsAssociation`: Boolean for DNS association (default: true)
+  - `provisioning`: Provisioning type (default: "dedicated-vm")
+  - `pu`: Processing units (default: 1)
+  - `expiration`: Expiration (default: "0")
 - **Vector Search**: Entire object omitted when disabled (not `enabled: false`)
 - **API Endpoints Used**:
   - `/deployment/cloud-providers` - Get cloud provider list
