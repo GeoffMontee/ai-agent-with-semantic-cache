@@ -235,6 +235,29 @@ This command is useful for finding your account ID when you need to create a new
 
 No additional options required.
 
+### List Clusters Command
+
+List all clusters for a specific account from the ScyllaDB Cloud API:
+
+```bash
+./deploy-scylla-cloud.py list-clusters --account-id "your-account-id"
+```
+
+Or using environment variable:
+```bash
+export SCYLLA_CLOUD_ACCOUNT_ID="your-account-id"
+./deploy-scylla-cloud.py list-clusters
+```
+
+**JSON output:**
+```bash
+./deploy-scylla-cloud.py list-clusters --format json
+```
+
+| Option | Description |
+|--------|-------------|
+| `--account-id` | ScyllaDB Cloud account ID (required, or set `SCYLLA_CLOUD_ACCOUNT_ID` env var) |
+
 ### Get Account Info Command
 
 Retrieve ScyllaDB Cloud account information.

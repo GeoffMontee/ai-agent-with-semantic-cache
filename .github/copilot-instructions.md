@@ -197,7 +197,7 @@ Provides a command-line interface for:
 - Managing local state of deployed clusters
 
 ### Architecture
-- **Subcommand-based CLI**: Uses `create`, `destroy`, `status`, `info`, `list` subcommands
+- **Subcommand-based CLI**: Uses `create`, `destroy`, `status`, `info`, `list`, `list-clusters`, `get-account-info` subcommands
 - **State Management**: Stores cluster information in `~/.scylla-clusters.json`
 - **API Client**: Wraps ScyllaDB Cloud REST API (`https://api.cloud.scylladb.com`)
 - **Output Formats**: Supports both human-readable text and JSON output
@@ -256,6 +256,8 @@ Same as main tool:
   - `/deployment/cloud-providers` - Get cloud provider list
   - `/deployment/cloud-provider/{id}/regions` - Get regions for provider
   - `/deployment/cloud-provider/{id}/region/{id}` - Get instance types for region
+  - `/account/{accountId}/cluster` - Create cluster
+  - `/account/{accountId}/clusters` - List all clusters for account
 
 ### Integration with Main Tool
 The deployment tool creates clusters that are then used by `ai_agent_with_cache.py`:

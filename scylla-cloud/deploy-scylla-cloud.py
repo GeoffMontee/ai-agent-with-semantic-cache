@@ -59,7 +59,15 @@ class ScyllaCloudClient:
                 error_msg += f"\n{response.text}"
             raise requests.exceptions.HTTPError(error_msg, response=response)
         
-        return response.json()
+        # Check for error in response body even with 200 status
+        result = response.json()
+        if isinstance(result, dict) and "error" in result:
+            error_msg = f"API returned error: {result.get('error')}"
+            if "message" in result:
+                error_msg += f" - {result.get('message')}"
+            raise requests.exceptions.HTTPError(error_msg, response=response)
+        
+        return result
     
     def get_cluster(self, cluster_id: str) -> Dict[str, Any]:
         """Get cluster details by ID."""
@@ -71,6 +79,13 @@ class ScyllaCloudClient:
     def list_clusters(self) -> Dict[str, Any]:
         """List all clusters."""
         url = f"{API_BASE_URL}/cluster/v1/clusters"
+        response = requests.get(url, headers=self.headers)
+        response.raise_for_status()
+        return response.json()
+    
+    def list_clusters_by_account(self, account_id: str) -> Dict[str, Any]:
+        """List all clusters for a specific account."""
+        url = f"{API_BASE_URL}/account/{account_id}/clusters"
         response = requests.get(url, headers=self.headers)
         response.raise_for_status()
         return response.json()
@@ -509,6 +524,32 @@ def cmd_list(args):
                 print(f"    Created: {data.get('created_at')}")
 
 
+def cmd_list_clusters(args):
+    """List all clusters for an account from ScyllaDB Cloud API."""
+    client = ScyllaCloudClient(args.api_key, debug=args.debug)
+    
+    try:
+        result = client.list_clusters_by_account(args.account_id)
+        
+        if args.format == "text":
+            print(f"Clusters for Account ID: {args.account_id}")
+            print("-" * 80)
+        
+        output_result(result, args.format)
+        
+        if args.format == "text":
+            print("-" * 80)
+        
+    except requests.exceptions.HTTPError as e:
+        print(f"✗ API Error: {e}", file=sys.stderr)
+        if e.response is not None:
+            print(f"Response: {e.response.text}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"✗ Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def cmd_get_account_info(args):
     """Get ScyllaDB Cloud account information."""
     client = ScyllaCloudClient(args.api_key, debug=args.debug)
@@ -708,6 +749,14 @@ def main():
     # List command
     list_parser = subparsers.add_parser("list", help="List all clusters in local state")
     
+    # List clusters command
+    list_clusters_parser = subparsers.add_parser("list-clusters", help="List all clusters for an account from ScyllaDB Cloud API")
+    list_clusters_parser.add_argument(
+        "--account-id",
+        type=str,
+        help="ScyllaDB Cloud account ID (required, or set SCYLLA_CLOUD_ACCOUNT_ID env var)"
+    )
+    
     # Get account info command
     account_parser = subparsers.add_parser("get-account-info", help="Get ScyllaDB Cloud account information")
     
@@ -746,6 +795,14 @@ def main():
         cmd_info(args)
     elif args.command == "list":
         cmd_list(args)
+    elif args.command == "list-clusters":
+        # Validate account ID
+        if not args.account_id:
+            args.account_id = os.getenv("SCYLLA_CLOUD_ACCOUNT_ID")
+        if not args.account_id:
+            print("✗ Error: Account ID is required. Use --account-id or set SCYLLA_CLOUD_ACCOUNT_ID", file=sys.stderr)
+            sys.exit(1)
+        cmd_list_clusters(args)
     elif args.command == "get-account-info":
         cmd_get_account_info(args)
 
