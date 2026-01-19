@@ -644,8 +644,8 @@ def main():
     create_parser.add_argument(
         "--vector-node-count",
         type=int,
-        default=3,
-        help="Number of vector search nodes (default: 3)"
+        default=1,
+        help="Number of vector search nodes (default: 1)"
     )
     create_parser.add_argument(
         "--vector-node-type",

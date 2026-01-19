@@ -75,7 +75,7 @@ The tool stores cluster information locally in `~/.scylla-clusters.json`. This f
 
 This creates a cluster with:
 - 3 ScyllaDB nodes (i4i.large instances)
-- 3 vector search nodes (i4i.large instances)
+- 1 vector search node (i4i.large instance)
 - AWS cloud provider in us-east-1 region
 - PUBLIC broadcast type
 - CIDR block: 192.168.1.0/24
@@ -196,7 +196,7 @@ This command is useful for finding your account ID when you need to create a new
 | `--node-count` | Number of ScyllaDB nodes (min: 3) | `3` |
 | `--node-type` | Instance type for ScyllaDB nodes | `i4i.large` |
 | `--disable-vector-search` | Disable vector search (enabled by default) | `False` |
-| `--vector-node-count` | Number of vector search nodes | `3` |
+| `--vector-node-count` | Number of vector search nodes | `1` |
 | `--vector-node-type` | Instance type for vector nodes | `i4i.large` |
 | `--broadcast-type` | Broadcast type: `PUBLIC` or `PRIVATE` | `PUBLIC` |
 | `--cidr-block` | VPC CIDR block | `192.168.1.0/24` |
