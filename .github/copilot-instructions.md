@@ -212,7 +212,11 @@ Provides a command-line interface for:
   - `lookup_region_id()`: Region name → region ID
   - `lookup_instance_type_id()`: Instance type name → instance type ID
 - Manages authentication headers
-- Debug mode for full request/response logging
+- **Debug mode**: Full request/response logging for all API methods
+  - Shows HTTP method and URL for every request
+  - Logs request headers (Authorization header masked)
+  - Displays complete response status, headers, and body
+  - Includes data parsing details for complex responses (e.g., get_connection_info shows raw cluster keys and values)
 
 #### `StateManager` Class
 - Persists cluster information locally
@@ -283,8 +287,11 @@ Same as main tool:
   - `/deployment/cloud-provider/{id}/regions` - Get regions for provider
   - `/deployment/cloud-provider/{id}/region/{id}` - Get instance types for cluster nodes
   - `/deployment/cloud-provider/{id}/region/{id}?target=VECTOR_SEARCH` - Get instance types for vector search nodes
-  - `/account/{accountId}/cluster` - Create cluster
-  - `/account/{accountId}/clusters` - List all clusters for account
+  - `/account/{accountId}/cluster` (POST) - Create cluster
+  - `/account/{accountId}/cluster/{clusterId}` (GET) - Get cluster details
+  - `/account/{accountId}/cluster/{clusterId}` (DELETE) - Delete cluster
+  - `/account/{accountId}/clusters` (GET) - List all clusters for account
+  - `/account/default` (GET) - Get default account information
 
 ### Integration with Main Tool
 The deployment tool creates clusters that are then used by `ai_agent_with_cache.py`:
@@ -296,6 +303,10 @@ The deployment tool creates clusters that are then used by `ai_agent_with_cache.
 - Failed operations leave resources in place for inspection
 - Clear error messages with HTTP response details
 - State remains consistent even on failures
+- Debug mode (`--debug` flag) provides full request/response details for troubleshooting:
+  - All API methods (create, get, list, delete, get_account_info) include debug logging
+  - Shows exact API endpoints called and response data structures
+  - Helpful for diagnosing API changes or unexpected response formats
 
 ### Testing Recommendations for ScyllaDB Cloud Tool
 - [ ] Test cluster creation with minimal configuration

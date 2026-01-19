@@ -73,33 +73,100 @@ class ScyllaCloudClient:
     def get_cluster(self, account_id: str, cluster_id: str) -> Dict[str, Any]:
         """Get cluster details by ID."""
         url = f"{API_BASE_URL}/account/{account_id}/cluster/{cluster_id}"
+        
+        if self.debug:
+            print(f"\n=== DEBUG: GET {url} ===")
+            print(f"Headers: {json.dumps({k: v for k, v in self.headers.items() if k != 'Authorization'}, indent=2)}")
+        
         response = requests.get(url, headers=self.headers)
+        
+        if self.debug:
+            print(f"\nResponse Status: {response.status_code}")
+            print(f"Response Headers: {json.dumps(dict(response.headers), indent=2)}")
+            try:
+                print(f"Response Body: {json.dumps(response.json(), indent=2)}")
+            except:
+                print(f"Response Body: {response.text}")
+            print("=== END DEBUG ===")
+        
         response.raise_for_status()
         return response.json()
     
     def list_clusters(self) -> Dict[str, Any]:
         """List all clusters."""
         url = f"{API_BASE_URL}/cluster/v1/clusters"
+        
+        if self.debug:
+            print(f"\n=== DEBUG: GET {url} ===")
+            print(f"Headers: {json.dumps({k: v for k, v in self.headers.items() if k != 'Authorization'}, indent=2)}")
+        
         response = requests.get(url, headers=self.headers)
+        
+        if self.debug:
+            print(f"\nResponse Status: {response.status_code}")
+            try:
+                print(f"Response Body: {json.dumps(response.json(), indent=2)}")
+            except:
+                print(f"Response Body: {response.text}")
+            print("=== END DEBUG ===")
+        
         response.raise_for_status()
         return response.json()
     
     def list_clusters_by_account(self, account_id: str) -> Dict[str, Any]:
         """List all clusters for a specific account."""
         url = f"{API_BASE_URL}/account/{account_id}/clusters"
+        
+        if self.debug:
+            print(f"\n=== DEBUG: GET {url} ===")
+            print(f"Headers: {json.dumps({k: v for k, v in self.headers.items() if k != 'Authorization'}, indent=2)}")
+        
         response = requests.get(url, headers=self.headers)
+        
+        if self.debug:
+            print(f"\nResponse Status: {response.status_code}")
+            try:
+                print(f"Response Body: {json.dumps(response.json(), indent=2)}")
+            except:
+                print(f"Response Body: {response.text}")
+            print("=== END DEBUG ===")
+        
         response.raise_for_status()
         return response.json()
     
     def delete_cluster(self, account_id: str, cluster_id: str) -> None:
         """Delete a cluster by ID."""
         url = f"{API_BASE_URL}/account/{account_id}/cluster/{cluster_id}"
+        
+        if self.debug:
+            print(f"\n=== DEBUG: DELETE {url} ===")
+            print(f"Headers: {json.dumps({k: v for k, v in self.headers.items() if k != 'Authorization'}, indent=2)}")
+        
         response = requests.delete(url, headers=self.headers)
+        
+        if self.debug:
+            print(f"\nResponse Status: {response.status_code}")
+            try:
+                print(f"Response Body: {json.dumps(response.json(), indent=2)}")
+            except:
+                print(f"Response Body: {response.text}")
+            print("=== END DEBUG ===")
+        
         response.raise_for_status()
     
     def get_connection_info(self, account_id: str, cluster_id: str) -> Dict[str, Any]:
         """Get connection information for a cluster."""
         cluster = self.get_cluster(account_id, cluster_id)
+        
+        if self.debug:
+            print(f"\n=== DEBUG: Parsing cluster data ===")
+            print(f"Raw cluster keys: {list(cluster.keys())}")
+            print(f"Cluster 'name': {cluster.get('name')}")
+            print(f"Cluster 'status': {cluster.get('status')}")
+            print(f"Cluster 'datacenters': {cluster.get('datacenters')}")
+            print(f"Cluster 'connection': {cluster.get('connection')}")
+            print("=== END DEBUG ===")
+        
         return {
             "cluster_id": cluster_id,
             "name": cluster.get("name"),
@@ -111,7 +178,21 @@ class ScyllaCloudClient:
     def get_account_info(self) -> Dict[str, Any]:
         """Get default account information."""
         url = f"{API_BASE_URL}/account/default"
+        
+        if self.debug:
+            print(f"\n=== DEBUG: GET {url} ===")
+            print(f"Headers: {json.dumps({k: v for k, v in self.headers.items() if k != 'Authorization'}, indent=2)}")
+        
         response = requests.get(url, headers=self.headers)
+        
+        if self.debug:
+            print(f"\nResponse Status: {response.status_code}")
+            try:
+                print(f"Response Body: {json.dumps(response.json(), indent=2)}")
+            except:
+                print(f"Response Body: {response.text}")
+            print("=== END DEBUG ===")
+        
         response.raise_for_status()
         return response.json()
     

@@ -188,7 +188,13 @@ This command is useful for finding your account ID when you need to create a new
 |--------|-------------|---------|
 | `--api-key` | ScyllaDB Cloud API key | `SCYLLA_CLOUD_API_KEY` env var |
 | `--format` | Output format: `text` or `json` | `text` |
-| `--debug` | Enable debug output with full request/response details | `False` |
+| `--debug` | Enable debug output with full request/response details for all API calls | `False` |
+
+The `--debug` flag provides comprehensive logging including:
+- Full HTTP request URLs and methods (GET, POST, DELETE)
+- Request and response headers
+- Complete response bodies
+- Data parsing details for complex responses
 
 ### Create Command
 
