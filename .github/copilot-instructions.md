@@ -242,13 +242,13 @@ Same as main tool:
   - `numberOfNodes` (not nodeCount)
   - `vectorSearch.defaultNodes`, `vectorSearch.defaultInstanceTypeId`, `vectorSearch.singleRack` (not nodeCount, nodeType)
   - `broadcastType`: PUBLIC or PRIVATE (default: PUBLIC)
-  - `cidrBlock`: Required, defaults to 192.168.1.0/24, must be /16 or larger
+  - `cidrBlock`: Required, defaults to 192.168.1.0/24, must be /16 or larger (only included when broadcastType is PRIVATE)
   - `replicationFactor`: Defaults to 3
   - `tablets`: "enforced" by default, "false" if disabled
   - `allowedIPs`: List of allowed IP addresses (default: ["0.0.0.0/0"]), each must be /16 or larger
-  - `scyllaVersion`: ScyllaDB version (default: "2025.4.1")
+  - `scyllaVersion`: ScyllaDB version (default: "2025.4.0")
   - `accountCredentialId`: Account credential ID (default: 3)
-  - `alternatorWriteIsolation`: Alternator write isolation (default: "only_rmw_uses_lwt")
+  - `alternatorWriteIsolation`: Alternator write isolation (default: "only_rmw_uses_lwt", only included when userApiInterface is ALTERNATOR)
   - `freeTier`: Boolean for free tier (default: false)
   - `promProxy`: Boolean for Prometheus proxy (default: false)
   - `userApiInterface`: User API interface (default: "CQL")

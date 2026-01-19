@@ -82,7 +82,7 @@ This creates a cluster with:
 - Allowed IPs: 0.0.0.0/0 (all IPs)
 - Replication factor: 3
 - Tablets enabled
-- ScyllaDB version: 2025.4.1
+- ScyllaDB version: 2025.4.0
 - User API: CQL
 - Alternator write isolation: only_rmw_uses_lwt
 
@@ -116,7 +116,7 @@ The tool automatically looks up the cloud provider ID, region ID, and instance t
   --cidr-block "10.0.0.0/16" \
   --allowed-ips "203.0.113.0/24" "198.51.100.0/24" \
   --replication-factor 3 \
-  --scylla-version "2025.4.1" \
+  --scylla-version "2025.4.0" \
   --account-credential-id 0 \
   --alternator-write-isolation "only_rmw_uses_lwt" \
   --user-api "CQL" \
@@ -204,7 +204,7 @@ This command is useful for finding your account ID when you need to create a new
 | `--allowed-ips` | Allowed IP addresses (space-separated) | `0.0.0.0/0` |
 | `--replication-factor` | Replication factor | `3` |
 | `--disable-tablets` | Disable tablets (enabled by default) | `False` |
-| `--scylla-version` | ScyllaDB version | `2025.4.1` |
+| `--scylla-version` | ScyllaDB version | `2025.4.0` |
 | `--account-credential-id` | Account credential ID | `3` |
 | `--alternator-write-isolation` | Alternator write isolation | `only_rmw_uses_lwt` |
 | `--free-tier` | Enable free tier | `False` |
@@ -219,6 +219,8 @@ This command is useful for finding your account ID when you need to create a new
 
 **Notes:**
 - `--cidr-block` and `--allowed-ips` must be /16 or larger (e.g., /16, /17, /24). Larger prefix numbers = smaller networks.
+- `--cidr-block` is only included in the request when `--broadcast-type` is `PRIVATE`.
+- `--alternator-write-isolation` is only included in the request when `--user-api` is `ALTERNATOR`.
 - `--pu` and `--expiration` are only included in the request when `--free-tier` is enabled.
 - Vector search instance types are validated against the restricted set of vector-compatible instances using the `target=VECTOR_SEARCH` API parameter.
 

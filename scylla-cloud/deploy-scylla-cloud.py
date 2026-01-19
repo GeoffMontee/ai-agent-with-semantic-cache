@@ -344,6 +344,8 @@ def cmd_create(args):
     
     # Build cluster configuration
     free_tier = args.free_tier or os.getenv("SCYLLA_CLOUD_FREE_TIER", "false").lower() == "true"
+    broadcast_type = args.broadcast_type
+    user_api = args.user_api or os.getenv("SCYLLA_CLOUD_USER_API", "CQL")
     
     config = {
         "clusterName": args.name,
@@ -352,20 +354,26 @@ def cmd_create(args):
         "regionId": region_id,
         "instanceId": instance_id,
         "numberOfNodes": args.node_count,
-        "cidrBlock": args.cidr_block,
-        "broadcastType": args.broadcast_type,
+        "broadcastType": broadcast_type,
         "replicationFactor": args.replication_factor,
         "tablets": "false" if args.disable_tablets else "enforced",
         "allowedIPs": args.allowed_ips,
-        "scyllaVersion": args.scylla_version or os.getenv("SCYLLA_VERSION", "2025.4.1"),
+        "scyllaVersion": args.scylla_version or os.getenv("SCYLLA_VERSION", "2025.4.0"),
         "accountCredentialId": args.account_credential_id if args.account_credential_id is not None else int(os.getenv("SCYLLA_CLOUD_ACCOUNT_CREDENTIAL_ID", "3")),
-        "alternatorWriteIsolation": args.alternator_write_isolation or os.getenv("SCYLLA_CLOUD_ALTERNATOR_WRITE_ISOLATION", "only_rmw_uses_lwt"),
         "freeTier": free_tier,
         "promProxy": args.prometheus_proxy or os.getenv("SCYLLA_CLOUD_PROMETHEUS_PROXY", "false").lower() == "true",
-        "userApiInterface": args.user_api or os.getenv("SCYLLA_CLOUD_USER_API", "CQL"),
+        "userApiInterface": user_api,
         "enableDnsAssociation": args.enable_dns_association or os.getenv("SCYLLA_CLOUD_ENABLE_DNS_ASSOCIATION", "true").lower() == "true",
         "provisioning": args.provisioning or os.getenv("SCYLLA_CLOUD_PROVISIONING", "dedicated-vm"),
     }
+    
+    # Add cidrBlock only for PRIVATE broadcast type
+    if broadcast_type == "PRIVATE":
+        config["cidrBlock"] = args.cidr_block
+    
+    # Add alternatorWriteIsolation only for ALTERNATOR user API
+    if user_api == "ALTERNATOR":
+        config["alternatorWriteIsolation"] = args.alternator_write_isolation or os.getenv("SCYLLA_CLOUD_ALTERNATOR_WRITE_ISOLATION", "only_rmw_uses_lwt")
     
     # Add pu and expiration only for free tier clusters
     if free_tier:
@@ -743,8 +751,8 @@ def main():
     create_parser.add_argument(
         "--scylla-version",
         type=str,
-        default="2025.4.1",
-        help="ScyllaDB version (default: 2025.4.1, or set SCYLLA_VERSION env var)"
+        default="2025.4.0",
+        help="ScyllaDB version (default: 2025.4.0, or set SCYLLA_VERSION env var)"
     )
     create_parser.add_argument(
         "--account-credential-id",
