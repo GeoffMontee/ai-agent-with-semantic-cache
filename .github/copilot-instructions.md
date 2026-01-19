@@ -7,9 +7,10 @@ This is a Python CLI tool that provides an AI agent interface with semantic cach
 - **ScyllaDB Cloud** for vector-based semantic caching
 - **SentenceTransformers** for generating embeddings
 
-The project consists of two main components:
+The project consists of three main components:
 1. **Main AI Agent** (`ai_agent_with_cache.py`) - Queries Claude with optional semantic caching
 2. **ScyllaDB Cloud Management** (`scylla-cloud/deploy-scylla-cloud.py`) - Manages ScyllaDB Cloud clusters
+3. **PostgreSQL pgvector Docker Management** (`postgres-pgvector-docker/deploy-pgvector-docker.py`) - Manages local PostgreSQL instances with pgvector
 
 ## Key Architecture Patterns
 
@@ -308,27 +309,101 @@ The deployment tool creates clusters that are then used by `ai_agent_with_cache.
   - Shows exact API endpoints called and response data structures
   - Helpful for diagnosing API changes or unexpected response formats
 
-### Testing Recommendations for ScyllaDB Cloud Tool
-- [ ] Test cluster creation with minimal configuration
-- [ ] Test cluster creation with vector search enabled (default)
-- [ ] Test cluster creation with vector search disabled
-- [ ] Test cluster creation with full configuration options
-- [ ] Test ID lookup for different cloud providers (AWS/GCP)
-- [ ] Test ID lookup for different regions
-- [ ] Test ID lookup for different instance types
-- [ ] Test with invalid cloud provider/region/instance type names
-- [ ] Test all configuration options: --broadcast-type, --cidr-block, --allowed-ips, --replication-factor, --disable-tablets, --scylla-version, --account-credential-id, --alternator-write-isolation, --free-tier, --prometheus-proxy, --user-api
-- [ ] Verify all options have corresponding environment variables
-- [ ] Verify default values are applied correctly
-- [ ] Verify state file is created and updated correctly
-- [ ] Test destroy with and without --force flag
-- [ ] Test status command with active and pending clusters
-- [ ] Test info command output formats
-- [ ] Test list command with empty and populated state
-- [ ] Test get-account-info command
-- [ ] Verify API key validation
-- [ ] Test with invalid cluster names
-- [ ] Verify minimum node count validation (3 nodes)
+## PostgreSQL pgvector Docker Management Tool
+
+### Location
+The `postgres-pgvector-docker/` subdirectory contains tooling for managing local PostgreSQL instances with pgvector.
+
+### Purpose
+Provides a command-line interface for:
+- Starting PostgreSQL containers with pgvector extension
+- Stopping and restarting containers
+- Destroying containers (with optional data removal)
+- Checking container status
+- Retrieving connection information
+- Viewing container logs
+
+### Architecture
+- **Subcommand-based CLI**: Uses `start`, `stop`, `restart`, `destroy`, `status`, `info`, `logs` subcommands
+- **Docker Integration**: Uses Docker SDK (python `docker` package) to query container state directly
+- **No State File**: Container state queried from Docker API instead of maintaining separate state
+- **Docker Compose**: Uses docker-compose.yml for container configuration
+- **Named Volumes**: Data persisted in Docker named volumes (format: `{container-name}-data`)
+
+### Key Components
+
+#### `DockerManager` Class
+- Wraps Docker SDK operations
+- Methods for container queries and validation
+- **get_container()**: Retrieve container by name
+- **is_port_in_use()**: Check if port is already bound by another container
+
+#### Container Lifecycle
+- **start**: Creates and starts container (or starts existing stopped container)
+- **stop**: Stops container but preserves data
+- **restart**: Restarts running container
+- **destroy**: Removes container, optionally removes data volumes
+
+### Configuration
+- **Container Name**: User-specified with default `pgvector-local`
+- **Multiple Instances**: Supports multiple instances on different ports
+- **PostgreSQL Version**: Configurable (12-18), default 18
+- **Port**: Configurable, default 5432 (validates port is not in use)
+- **Credentials**: Configurable user/password/database
+
+### Docker Compose Configuration
+- **Base file**: `docker-compose.yml` with environment variable placeholders
+- **Image**: Uses official `pgvector/pgvector:pg{version}` images
+- **Environment**: Passes POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, etc.
+- **Health Check**: Built-in pg_isready check with 5s intervals
+- **Auto-restart**: Container restarts unless explicitly stopped
+
+### pgvector Extension Initialization
+- **init.sql**: SQL script mounted at `/docker-entrypoint-initdb.d/01-init.sql`
+- **Auto-execution**: Runs on first container start (PostgreSQL behavior)
+- **Extension Creation**: `CREATE EXTENSION IF NOT EXISTS vector;`
+- **Idempotent**: Safe to run multiple times
+
+### Port Management
+- **Validation**: Checks if port is in use before starting
+- **Multi-instance**: Allows multiple containers on different ports
+- **Error Handling**: Clear error message if port conflict detected
+
+### Data Persistence
+- **Volume Type**: Docker named volumes (not bind mounts)
+- **Naming**: `{container-name}-data` (e.g., `pgvector-local-data`)
+- **Lifecycle**: Survives container removal unless `--remove-volumes` flag used
+- **Mount Point**: `/var/lib/postgresql/data` (PostgreSQL default)
+
+### Integration with Main Tool
+Provides local PostgreSQL alternative to ScyllaDB Cloud for development/testing:
+1. Start PostgreSQL: `deploy-pgvector-docker.py start`
+2. Get connection info: `deploy-pgvector-docker.py info`
+3. Use connection string with AI agent for local testing
+
+### Error Handling
+- **Docker Connection**: Validates Docker daemon is running at startup
+- **Container Conflicts**: Checks for existing containers and port conflicts
+- **Health Checks**: Waits for container to be healthy after start (30s timeout)
+- **Clear Messages**: User-friendly error messages for common issues
+
+### Testing Recommendations for PostgreSQL pgvector Tool
+- [ ] Test start with default configuration
+- [ ] Test start with custom port, user, password, database
+- [ ] Test start with different PostgreSQL versions (12-18)
+- [ ] Test multiple instances on different ports
+- [ ] Test port conflict detection
+- [ ] Test stop preserves data
+- [ ] Test restart existing container
+- [ ] Test destroy without --remove-volumes (preserves data)
+- [ ] Test destroy with --remove-volumes (removes data)
+- [ ] Test status shows correct container info
+- [ ] Test info returns correct connection details
+- [ ] Test logs with --tail option
+- [ ] Test logs with --follow option
+- [ ] Verify pgvector extension is installed on first start
+- [ ] Verify health check passes
+- [ ] Test with Docker not running
 - [ ] Test debug mode with --debug flag
 
 ## Future Enhancement Ideas
@@ -352,7 +427,13 @@ The deployment tool creates clusters that are then used by `ai_agent_with_cache.
 - Cluster scaling (add/remove nodes)
 - Monitoring and metrics retrieval
 - Support for other ScyllaDB Cloud features (VPC peering, etc.)
-- Similarity threshold configuration
-- Cache expiration policies
-- Multi-turn conversation support
-- Prompt templates and variables
+
+### PostgreSQL pgvector Docker Tool
+- Backup and restore commands
+- Database initialization scripts (custom SQL on startup)
+- Performance tuning options (shared_buffers, etc.)
+- Connection pooling with pgbouncer
+- Replica/standby container support
+- Automatic schema migration support
+- Integration with pg_dump/pg_restore
+
