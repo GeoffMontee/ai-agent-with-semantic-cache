@@ -14,13 +14,17 @@ A command-line utility that uses Anthropic's Claude AI with optional semantic ca
 
 ## Project Structure
 
-The project consists of three main components:
+The project consists of four main components:
 
 1. **AI Agent** (`ai_agent_with_cache.py`) - Main CLI tool for querying Claude with semantic caching
-2. **ScyllaDB Cloud Management** (`scylla-cloud/`) - Deployment tool for managing ScyllaDB Cloud clusters
+2. **Performance Benchmark** (`benchmark.py`) - Compare cache performance between backends
+   - Comprehensive benchmark suite with multiple test scenarios
+   - Measures cache hits, semantic similarity, cache misses, and scale
+   - Exports results to JSON or CSV format
+3. **ScyllaDB Cloud Management** (`scylla-cloud/`) - Deployment tool for managing ScyllaDB Cloud clusters
    - `deploy-scylla-cloud.py` - Create, destroy, and manage clusters with vector search
    - See [scylla-cloud/README.md](scylla-cloud/README.md) for detailed documentation
-3. **PostgreSQL pgvector Docker Management** (`postgres-pgvector-docker/`) - Local PostgreSQL with pgvector
+4. **PostgreSQL pgvector Docker Management** (`postgres-pgvector-docker/`) - Local PostgreSQL with pgvector
    - `deploy-pgvector-docker.py` - Manage local PostgreSQL containers with pgvector
    - See [postgres-pgvector-docker/README.md](postgres-pgvector-docker/README.md) for detailed documentation
 
@@ -384,7 +388,64 @@ NoHostAvailable: Unable to connect to any servers
 **Solution**: Verify your ScyllaDB contact points, credentials, and network connectivity. If using ScyllaDB Cloud, ensure your cluster is active using `./scylla-cloud/deploy-scylla-cloud.py status --name your-cluster`.
 
 ### Vector Index Not Ready
-**ScyllaDB**: The tool waits 2 seconds for index initialization. For larger databases, you may need to increase this delay in the code.
+**SBenchmarking Cache Performance
+
+Compare the performance of ScyllaDB and PostgreSQL pgvector backends using the included benchmark script:
+
+```bash
+./benchmark.py --backends both \
+  --postgres-password postgres \
+  --scylla-contact-points "your-host.com" \
+  --scylla-user scylla \
+  --scylla-password "your-password"
+```
+
+### Benchmark Scenarios
+
+The benchmark tests four key scenarios:
+
+1. **Cache Hit Performance**: Queries the same cached prompt 100 times to measure pure retrieval speed
+2. **Semantic Similarity Matching**: Tests whether semantically similar prompts trigger cache hits
+3. **Cache Miss Performance**: Measures lookup + write latency for new prompts
+4. **Scale Testing**: Pre-populates cache with various dataset sizes
+
+### Benchmark Options
+
+```bash
+# Test only PostgreSQL
+./benchmark.py --backends pgvector
+
+# Test only ScyllaDB
+./benchmark.py --backends scylla
+
+# Save results to JSON
+./benchmark.py --backends both --output json
+
+# Use custom prompts
+./benchmark.py --prompts-file my_prompts.txt
+```
+
+### Customizing Test Prompts
+
+Edit [benchmark_prompts.txt](benchmark_prompts.txt) to customize the prompts used in benchmarks. The file is organized into categories:
+- Base prompts (for cache population)
+- Semantically similar variants (for similarity testing)
+- Diverse prompts (for cache miss testing)
+- Technical and edge case prompts
+
+### Sample Results
+
+Performance comparison (local PostgreSQL vs ScyllaDB Cloud):
+
+| Metric | PostgreSQL pgvector | ScyllaDB Cloud |
+|--------|---------------------|----------------|
+| Cache Hit (p50) | 1.15ms | 169.39ms |
+| Semantic Hit Rate | 100% | Varies |
+| Cache Miss Write (p50) | ~0ms | 307.98ms |
+
+**Note**: Network latency significantly impacts cloud-based backends. For fair comparisons, deploy both backends in the same environment (both local or both cloud).
+
+## cyllaDB**: The tool waits 2 seconds for index initialization. For larger databases, you may need to increase this delay in the code.
 
 **PostgreSQL**: HNSW indexes are created automatically. For large datasets, you may want to create indexes after loading initial data.
 

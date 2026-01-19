@@ -7,10 +7,11 @@ This is a Python CLI tool that provides an AI agent interface with semantic cach
 - **ScyllaDB Cloud** OR **PostgreSQL pgvector** for vector-based semantic caching
 - **SentenceTransformers** for generating embeddings
 
-The project consists of three main components:
+The project consists of four main components:
 1. **Main AI Agent** (`ai_agent_with_cache.py`) - Queries Claude with optional semantic caching using ScyllaDB or PostgreSQL pgvector
-2. **ScyllaDB Cloud Management** (`scylla-cloud/deploy-scylla-cloud.py`) - Manages ScyllaDB Cloud clusters
-3. **PostgreSQL pgvector Docker Management** (`postgres-pgvector-docker/deploy-pgvector-docker.py`) - Manages local PostgreSQL instances with pgvector
+2. **Performance Benchmark** (`benchmark.py`) - Compares cache performance between backends with comprehensive test scenarios
+3. **ScyllaDB Cloud Management** (`scylla-cloud/deploy-scylla-cloud.py`) - Manages ScyllaDB Cloud clusters
+4. **PostgreSQL pgvector Docker Management** (`postgres-pgvector-docker/deploy-pgvector-docker.py`) - Manages local PostgreSQL instances with pgvector
 
 ## Key Architecture Patterns
 
@@ -49,6 +50,9 @@ All configuration follows this precedence order:
 ### Database Operations
 - **ScyllaDB**: Use prepared statements for inserts, convert numpy arrays to lists before sending to CQL
 - **PostgreSQL pgvector**: Use parameterized queries with psycopg3, convert numpy arrays to lists for pgvector
+  - **CRITICAL**: All vector parameters MUST be cast to `::vector` type in SQL queries
+  - Example: `SELECT ... WHERE embedding <-> %s::vector < %s`
+  - Without `::vector`, queries fail with "operator does not exist" error
 - Include proper error handling with informative messages
 
 ## Component Responsibilities
@@ -67,6 +71,9 @@ All configuration follows this precedence order:
 - **Key Methods**:
   - `connect()`: Async connection establishment and database setup
   - `get_cached_response()`: HNSW vector search for similar prompts
+- **Vector Type Casting**: All vector parameters must use `::vector` casting in SQL queries
+  - Required for distance operators: `<->` (L2), `<=>` (cosine), `<#>` (inner product), `<+>` (L1)
+  - Failure to cast causes "operator does not exist: vector <=> double precision[]" errors
   - `cache_response()`: Store new prompt-response pairs
   - `close()`: Clean async shutdown of database connection
 - **Important**: All methods except `__init__` are async and must be awaited
@@ -312,11 +319,17 @@ Same as main tool:
   - `/deployment/cloud-provider/{id}/regions` - Get regions for provider
   - `/deployment/cloud-provider/{id}/region/{id}` - Get instance types for cluster nodes
   - `/deployment/cloud-provider/{id}/region/{id}?target=VECTOR_SEARCH` - Get instance types for vector search nodes
-  - `/account/{accountId}/cluster` (POST) - Create cluster
-  - `/account/{accountId}/cluster/{clusterId}` (GET) - Get cluster details
-  - `/account/{accountId}/cluster/{clusterId}` (DELETE) - Delete cluster
+  - `/account/{accountId}/cluster` (POST) - Create cluster (returns requestId, not clusterId)
+  - `/account/{accountId}/cluster/request/{requestId}` (GET) - Resolve request ID to cluster ID and details
+  - `/account/{accountId}/cluster/{clusterId}` (GET) - Get cluster details by cluster ID
+  - `/account/{accountId}/cluster/{clusterId}/delete` (POST) - Delete cluster (POST, not DELETE)
   - `/account/{accountId}/clusters` (GET) - List all clusters for account
   - `/account/default` (GET) - Get default account information
+- **Request ID vs Cluster ID**: 
+  - Create cluster returns `requestId` in `data.requestId`, not the actual `clusterId`
+  - Use `/account/{accountId}/cluster/request/{requestId}` to resolve to actual cluster ID
+  - Store both `request_id` and `cluster_id` in state for flexibility
+  - Info command automatically resolves request IDs to cluster IDs if needed
 
 ### Integration with Main Tool
 The deployment tool creates clusters that are then used by `ai_agent_with_cache.py`:
@@ -326,6 +339,12 @@ The deployment tool creates clusters that are then used by `ai_agent_with_cache.
 
 ### Error Handling
 - Failed operations leave resources in place for inspection
+
+### Important Implementation Fixes
+- **Delete Cluster**: Use POST to `/account/{accountId}/cluster/{clusterId}/delete`, not DELETE to `/cluster/{clusterId}`
+- **Cluster Info**: Parse nested `{"data": {"cluster": {...}}}` structure correctly
+- **ID Resolution**: Add `get_cluster_from_request()` method to resolve request IDs to cluster IDs
+- **State Management**: Use `update_cluster()` method to update existing cluster state (e.g., after resolving request ID)
 - Clear error messages with HTTP response details
 - State remains consistent even on failures
 - Debug mode (`--debug` flag) provides full request/response details for troubleshooting:
@@ -430,7 +449,123 @@ Provides local PostgreSQL alternative to ScyllaDB Cloud for development/testing:
 - [ ] Test with Docker not running
 - [ ] Test debug mode with --debug flag
 
+## Performance Benchmark Tool
+
+### Location
+The `benchmark.py` script in the root directory provides comprehensive performance testing for cache backends.
+
+### Purpose
+Compares cache performance between ScyllaDB and PostgreSQL pgvector with multiple test scenarios:
+- Cache hit performance (repeated queries)
+- Semantic similarity matching (similar prompt detection)
+- Cache miss performance (lookup + write)
+- Scale testing (varying cache sizes)
+
+### Architecture
+- **Multi-scenario Testing**: Four distinct test cases covering different usage patterns
+- **Flexible Backends**: Test pgvector, ScyllaDB, or both simultaneously
+- **Detailed Metrics**: Reports p50, p95, p99, max, and mean latencies
+- **Configurable Prompts**: Uses `benchmark_prompts.txt` for test data (easily customizable)
+- **Results Export**: Supports JSON and CSV output formats
+
+### Key Components
+
+#### Test Scenarios
+1. **Cache Hit Performance**: Queries same prompt 100 times to measure pure retrieval speed
+2. **Semantic Similarity Matching**: Tests if semantically similar prompts trigger cache hits (measures actual semantic caching value)
+3. **Cache Miss Performance**: Measures lookup latency before Claude query + write latency after
+4. **Scale Testing**: Pre-populates cache with varying numbers of entries (1, 10, 100, etc.)
+
+#### Benchmark Functions
+- `load_prompts()`: Loads prompts from text file, ignoring comments and empty lines
+- `benchmark_cache_hits()`: Repeated queries with same embedding to measure consistent performance
+- `benchmark_semantic_similarity()`: Tests cache hit rate for similar but not identical prompts
+- `benchmark_cache_misses()`: Measures both lookup and write latencies for new prompts
+- `calculate_percentiles()`: Computes p50, p95, p99, max, and mean from latency distributions
+- `run_benchmark_suite()`: Orchestrates complete test suite for a single backend
+- `print_comparison_table()`: Formats side-by-side comparison of multiple backends
+- `save_results()`: Exports results to JSON or CSV files
+
+#### Prompt File Structure (`benchmark_prompts.txt`)
+- Lines starting with `#` are comments (ignored)
+- Empty lines are ignored
+- Organized into categories:
+  - **Base prompts** (lines 1-5): Initial cache population
+  - **Similar variants** (lines 6-10): Semantic similarity testing
+  - **Diverse prompts** (lines 11-25): Cache miss testing
+  - **Technical questions** (lines 26-35): Realistic workload
+  - **Edge cases** (short/long prompts): Boundary testing
+
+### Configuration
+- **Backends**: `--backends pgvector|scylla|both` (default: both)
+- **Prompts File**: `--prompts-file` (default: benchmark_prompts.txt)
+- **Embedding Model**: `--sentence-transformer-model` (default: all-MiniLM-L6-v2)
+- **Output Format**: `--output json|csv|none` (default: none)
+- **Database Connection**: Same options as main AI agent tool
+
+### Integration with Cache Backends
+- **PostgreSQL pgvector**: Uses async connection, awaits all cache operations
+- **ScyllaDB**: Uses synchronous connection, no await needed
+- **Separate Keyspaces/Schemas**: Uses `llm_cache_benchmark` to avoid conflicts with production data
+
+### Results Interpretation
+- **Local vs Cloud**: Network latency dominates cloud-based backends (150x+ difference)
+- **Semantic Hit Rate**: Indicates how well the cache matches similar prompts
+- **p50 vs p99**: Shows consistency - large gaps indicate variable performance
+- **Write Latency**: Important for cache miss scenarios (how fast can we populate cache)
+
+### Usage Examples
+```bash
+# Test both backends with comparison
+./benchmark.py --backends both
+
+# Test only local PostgreSQL
+./benchmark.py --backends pgvector --postgres-password postgres
+
+# Test ScyllaDB Cloud
+./benchmark.py --backends scylla \
+  --scylla-contact-points "node-0.example.com,node-1.example.com" \
+  --scylla-user scylla --scylla-password "password"
+
+# Save results for analysis
+./benchmark.py --backends both --output json
+
+# Use custom test prompts
+./benchmark.py --prompts-file custom_prompts.txt
+```
+
+### Performance Considerations
+- **First Run**: Includes SentenceTransformer model loading time (~1-2 seconds)
+- **Warmup**: Cache operations may be slower on first query (connection establishment)
+- **Network Latency**: Cloud backends show 100-300ms latencies primarily due to network
+- **Local Backends**: Should show <5ms latencies for cache hits
+- **Semantic Matching**: Hit rate depends on similarity threshold and index configuration
+
+### Testing Recommendations for Benchmark Tool
+- [ ] Test with both backends simultaneously
+- [ ] Test with each backend individually
+- [ ] Test with custom prompt files
+- [ ] Verify JSON output format is valid
+- [ ] Verify CSV output format is valid
+- [ ] Test with different SentenceTransformer models
+- [ ] Compare local vs cloud deployment performance
+- [ ] Test with large prompt files (100+ prompts)
+- [ ] Test with empty cache (cold start)
+- [ ] Test with pre-populated cache (warm start)
+
 ## Future Enhancement Ideas
+
+### Performance Benchmark Tool
+- Add throughput testing (queries per second)
+- Add concurrent query testing (multiple parallel requests)
+- Add memory usage tracking
+- Add cache size vs performance analysis
+- Support for custom similarity thresholds
+- Add percentile graphs/visualizations
+- Support for continuous monitoring mode
+- Add warm-up phase before measurements
+- Support for multiple embedding models comparison
+- Add cost analysis (API calls saved, infrastructure cost)
 
 ### Main AI Agent
 - Support for multiple cache backends (Redis, PostgreSQL + pgvector)

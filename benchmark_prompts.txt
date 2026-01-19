@@ -1,0 +1,57 @@
+# Benchmark Prompts for Cache Performance Testing
+# One prompt per line. Lines starting with # are ignored.
+# These prompts are used to test cache performance across different scenarios.
+
+# Base prompts (will be cached first)
+What is machine learning?
+Explain quantum computing in simple terms
+What are the benefits of cloud computing?
+How does neural network training work?
+What is the difference between AI and ML?
+
+# Semantically similar variants (should hit cache with semantic matching)
+Define machine learning
+What's ML?
+Explain what machine learning means
+Can you describe machine learning?
+Tell me about machine learning
+
+# Different topics (cache misses for diversity testing)
+What is the capital of France?
+How do you make pizza?
+What causes rain?
+Explain photosynthesis
+What is the speed of light?
+How does a car engine work?
+What is democracy?
+Explain the theory of relativity
+What are the primary colors?
+How do airplanes fly?
+What is DNA?
+Explain blockchain technology
+What causes earthquakes?
+How does the internet work?
+What is gravity?
+
+# Technical questions (for realistic workload)
+How do you implement a binary search tree?
+What is REST API?
+Explain Docker containers
+What is Kubernetes?
+How does TLS encryption work?
+What is a microservice architecture?
+Explain continuous integration
+What is version control?
+How does garbage collection work?
+What is a hash table?
+
+# Short prompts
+Hello
+Hi there
+What?
+Why?
+How?
+
+# Long prompts
+Can you provide a comprehensive explanation of how modern machine learning algorithms, particularly deep learning neural networks, are trained using backpropagation and gradient descent, including details about activation functions, loss functions, and optimization techniques?
+I need a detailed breakdown of the differences between supervised learning, unsupervised learning, and reinforcement learning, with examples of real-world applications for each approach and explanations of when to use each method.
