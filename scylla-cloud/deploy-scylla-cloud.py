@@ -70,6 +70,28 @@ class ScyllaCloudClient:
         
         return result
     
+    def get_cluster_from_request(self, account_id: str, request_id: str) -> Dict[str, Any]:
+        """Get cluster info from request ID."""
+        url = f"{API_BASE_URL}/account/{account_id}/cluster/request/{request_id}"
+        
+        if self.debug:
+            print(f"\n=== DEBUG: GET {url} ===")
+            print(f"Headers: {json.dumps({k: v for k, v in self.headers.items() if k != 'Authorization'}, indent=2)}")
+        
+        response = requests.get(url, headers=self.headers)
+        
+        if self.debug:
+            print(f"\nResponse Status: {response.status_code}")
+            print(f"Response Headers: {json.dumps(dict(response.headers), indent=2)}")
+            try:
+                print(f"Response Body: {json.dumps(response.json(), indent=2)}")
+            except:
+                print(f"Response Body: {response.text}")
+            print("=== END DEBUG ===")
+        
+        response.raise_for_status()
+        return response.json()
+    
     def get_cluster(self, account_id: str, cluster_id: str) -> Dict[str, Any]:
         """Get cluster details by ID."""
         url = f"{API_BASE_URL}/account/{account_id}/cluster/{cluster_id}"
@@ -154,25 +176,52 @@ class ScyllaCloudClient:
         
         response.raise_for_status()
     
-    def get_connection_info(self, account_id: str, cluster_id: str) -> Dict[str, Any]:
-        """Get connection information for a cluster."""
+    def get_connection_info(self, account_id: str, cluster_id_or_request_id: str, is_request_id: bool = False) -> Dict[str, Any]:
+        """Get connection information for a cluster.
+        
+        Args:
+            account_id: Account ID
+            cluster_id_or_request_id: Either cluster ID or request ID
+            is_request_id: If True, treat as request ID and resolve to cluster ID first
+        """
+        # If we have a request ID, resolve it to cluster ID first
+        if is_request_id:
+            request_info = self.get_cluster_from_request(account_id, cluster_id_or_request_id)
+            data = request_info.get("data", {})
+            actual_cluster_id = data.get("clusterId")
+            if not actual_cluster_id:
+                raise ValueError(f"Could not resolve request ID {cluster_id_or_request_id} to cluster ID")
+            cluster_id = actual_cluster_id
+        else:
+            cluster_id = cluster_id_or_request_id
+        
         cluster = self.get_cluster(account_id, cluster_id)
         
         if self.debug:
             print(f"\n=== DEBUG: Parsing cluster data ===")
             print(f"Raw cluster keys: {list(cluster.keys())}")
-            print(f"Cluster 'name': {cluster.get('name')}")
-            print(f"Cluster 'status': {cluster.get('status')}")
-            print(f"Cluster 'datacenters': {cluster.get('datacenters')}")
-            print(f"Cluster 'connection': {cluster.get('connection')}")
+            print(f"Cluster 'data' keys: {list(cluster.get('data', {}).keys())}")
+        
+        # Extract cluster data from nested structure
+        cluster_data = cluster.get("data", {}).get("cluster", {})
+        datacenters = cluster_data.get("dataCenters", [])
+        
+        if self.debug:
+            print(f"Cluster 'clusterName': {cluster_data.get('clusterName')}")
+            print(f"Cluster 'status': {cluster_data.get('status')}")
+            print(f"Cluster 'dataCenters': {datacenters}")
             print("=== END DEBUG ===")
         
         return {
             "cluster_id": cluster_id,
-            "name": cluster.get("name"),
-            "status": cluster.get("status"),
-            "datacenter": cluster.get("datacenters", [{}])[0] if cluster.get("datacenters") else {},
-            "connection": cluster.get("connection", {})
+            "name": cluster_data.get("clusterName"),
+            "status": cluster_data.get("status"),
+            "datacenter": datacenters[0] if datacenters else {},
+            "dataCenters": datacenters,
+            "connection": cluster_data.get("connection", {}),
+            "grafanaUrl": cluster_data.get("grafanaUrl"),
+            "cloudProvider": cluster_data.get("cloudProviderId"),
+            "scyllaVersion": cluster_data.get("scyllaVersion")
         }
     
     def get_account_info(self) -> Dict[str, Any]:
@@ -318,6 +367,13 @@ class StateManager:
         state = self.load_state()
         state["clusters"][name] = cluster_data
         self.save_state(state)
+    
+    def update_cluster(self, name: str, cluster_data: Dict[str, Any]):
+        """Update existing cluster in state."""
+        state = self.load_state()
+        if name in state["clusters"]:
+            state["clusters"][name] = cluster_data
+            self.save_state(state)
     
     def get_cluster(self, name: str) -> Optional[Dict[str, Any]]:
         """Get cluster from state by name."""
@@ -482,13 +538,27 @@ def cmd_create(args):
         # Extract cluster info from nested response structure
         # Response format: {"data": {"requestId": ..., "fields": {...}}}
         data = result.get("data", {})
-        cluster_id = data.get("requestId") or result.get("id")
+        request_id = data.get("requestId")
         fields = data.get("fields", {})
         
-        # Save to state
+        # Fetch the actual cluster ID from the request
+        actual_cluster_id = None
+        if request_id:
+            try:
+                print(f"Fetching cluster ID from request {request_id}...")
+                request_info = client.get_cluster_from_request(args.account_id, str(request_id))
+                request_data = request_info.get("data", {})
+                actual_cluster_id = request_data.get("clusterId")
+                if actual_cluster_id:
+                    print(f"  Cluster ID: {actual_cluster_id}")
+            except Exception as e:
+                print(f"  Warning: Could not fetch cluster ID yet: {e}")
+                print(f"  You can retrieve it later with: ./deploy-scylla-cloud.py info --name {args.name}")
+        
+        # Save to state (use request_id as fallback for cluster_id if actual_cluster_id not available yet)
         cluster_data = {
-            "cluster_id": cluster_id,
-            "request_id": data.get("requestId"),
+            "cluster_id": actual_cluster_id or request_id,
+            "request_id": request_id,
             "name": args.name,
             "account_id": args.account_id,
             "cloud_provider": args.cloud_provider,
@@ -500,7 +570,9 @@ def cmd_create(args):
         state_mgr.add_cluster(args.name, cluster_data)
         
         print(f"✓ Cluster creation initiated")
-        print(f"Request ID: {data.get('requestId')}")
+        print(f"Request ID: {request_id}")
+        if actual_cluster_id:
+            print(f"Cluster ID: {actual_cluster_id}")
         if fields:
             print(f"Cluster Name: {fields.get('clusterName')}")
             if fields.get('scyllaVersion'):
@@ -644,19 +716,43 @@ def cmd_info(args):
         print(f"✗ Error: No account ID found for '{args.name}'", file=sys.stderr)
         sys.exit(1)
     
+    request_id = cluster_data.get("request_id")
+    
     try:
-        result = client.get_connection_info(account_id, cluster_id)
+        # Check if we have a request_id and the cluster_id equals request_id (old clusters)
+        # or if cluster_id looks like a request_id (numeric string typically 6 digits)
+        # If so, resolve it to the actual cluster ID
+        is_request_id = (request_id and str(cluster_id) == str(request_id))
+        
+        result = client.get_connection_info(account_id, cluster_id, is_request_id=is_request_id)
+        
+        # Update state with actual cluster ID if we resolved it from request ID
+        if is_request_id and result.get('cluster_id') and result.get('cluster_id') != cluster_id:
+            print(f"Updating state with actual cluster ID: {result.get('cluster_id')}")
+            cluster_data['cluster_id'] = result.get('cluster_id')
+            state_mgr.update_cluster(args.name, cluster_data)
         
         if args.format == "text":
             print(f"Connection Information for '{args.name}':")
-            print(f"Cluster ID: {cluster_id}")
+            print(f"Cluster ID: {result.get('cluster_id')}")
+            print(f"Cluster Name: {result.get('name')}")
             print(f"Status: {result.get('status')}")
+            print(f"ScyllaDB Version: {result.get('scyllaVersion')}")
             
             connection = result.get("connection", {})
             if connection:
                 print(f"\nConnection Details:")
                 for key, value in connection.items():
                     print(f"  {key}: {value}")
+            
+            datacenter = result.get("datacenter", {})
+            if datacenter and datacenter.get("clientConnection"):
+                print(f"\nContact Points:")
+                for host in datacenter.get("clientConnection", []):
+                    print(f"  {host}")
+            
+            if result.get("grafanaUrl"):
+                print(f"\nGrafana URL: {result.get('grafanaUrl')}")
         
         output_result(result, args.format)
         
