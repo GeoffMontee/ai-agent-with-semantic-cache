@@ -4,11 +4,11 @@
 
 This is a Python CLI tool that provides an AI agent interface with semantic caching capabilities. The project integrates:
 - **Anthropic Claude** (via Autogen) for AI completions
-- **ScyllaDB Cloud** for vector-based semantic caching
+- **ScyllaDB Cloud** OR **PostgreSQL pgvector** for vector-based semantic caching
 - **SentenceTransformers** for generating embeddings
 
 The project consists of three main components:
-1. **Main AI Agent** (`ai_agent_with_cache.py`) - Queries Claude with optional semantic caching
+1. **Main AI Agent** (`ai_agent_with_cache.py`) - Queries Claude with optional semantic caching using ScyllaDB or PostgreSQL pgvector
 2. **ScyllaDB Cloud Management** (`scylla-cloud/deploy-scylla-cloud.py`) - Manages ScyllaDB Cloud clusters
 3. **PostgreSQL pgvector Docker Management** (`postgres-pgvector-docker/deploy-pgvector-docker.py`) - Manages local PostgreSQL instances with pgvector
 
@@ -16,8 +16,9 @@ The project consists of three main components:
 
 ### 1. Conditional Caching
 - The tool supports running with or without semantic caching via the `--with-cache` flag
-- When caching is disabled (`--with-cache none`), ScyllaDB and SentenceTransformer dependencies are not initialized
-- When enabled (`--with-cache scylla`), the full vector search pipeline is activated
+- When caching is disabled (`--with-cache none`), database and SentenceTransformer dependencies are not initialized
+- When enabled (`--with-cache scylla` or `--with-cache pgvector`), the full vector search pipeline is activated
+- ScyllaDB uses synchronous Cassandra driver, PostgreSQL uses async psycopg3
 
 ### 2. Configuration Priority
 All configuration follows this precedence order:
@@ -27,7 +28,8 @@ All configuration follows this precedence order:
 
 ### 3. Vector Search Implementation
 - Embeddings are 384-dimension vectors from SentenceTransformer models
-- ScyllaDB uses cosine similarity for ANN (approximate nearest neighbor) search
+- **ScyllaDB**: Uses cosine similarity for ANN (approximate nearest neighbor) search via custom vector index
+- **PostgreSQL pgvector**: Uses HNSW indexes with configurable similarity functions (cosine, l2, inner_product, l1)
 - Cache hits return immediately without calling Claude API
 
 ## Code Style Guidelines
@@ -40,12 +42,13 @@ All configuration follows this precedence order:
 
 ### Async Patterns
 - Main async logic is in `async_main()`
-- Use `await` for Anthropic client calls
+- Use `await` for Anthropic client calls and PostgreSQL pgvector operations
+- ScyllaDB operations are synchronous (cassandra-driver is not async)
 - Keep the synchronous `main()` wrapper minimal
 
 ### Database Operations
-- Always use prepared statements for ScyllaDB inserts
-- Convert numpy arrays to lists before sending to CQL
+- **ScyllaDB**: Use prepared statements for inserts, convert numpy arrays to lists before sending to CQL
+- **PostgreSQL pgvector**: Use parameterized queries with psycopg3, convert numpy arrays to lists for pgvector
 - Include proper error handling with informative messages
 
 ## Component Responsibilities
@@ -58,21 +61,39 @@ All configuration follows this precedence order:
   - `cache_response()`: Store new prompt-response pairs
   - `close()`: Clean shutdown of database connection
 
+### `PgVectorCache` Class
+- **Purpose**: Encapsulates all PostgreSQL pgvector operations
+- **Initialization**: Sets up schema, table, and HNSW index
+- **Key Methods**:
+  - `connect()`: Async connection establishment and database setup
+  - `get_cached_response()`: HNSW vector search for similar prompts
+  - `cache_response()`: Store new prompt-response pairs
+  - `close()`: Clean async shutdown of database connection
+- **Important**: All methods except `__init__` are async and must be awaited
+
 ### `async_main()` Function
 - **Purpose**: Main application logic and orchestration
 - **Responsibilities**:
   - Parse command-line arguments
   - Validate API keys
-  - Conditionally initialize cache
+  - Conditionally initialize cache (ScyllaDB or pgvector)
   - Query Claude (with or without cache)
   - Display results
+  - Handle async operations for pgvector
 
 ## Important Implementation Details
 
 ### Embedding Consistency
-- The embedding model must match the vector dimension in ScyllaDB schema
+- The embedding model must match the vector dimension in database schemas
 - Default: `all-MiniLM-L6-v2` produces 384-dimension vectors
-- If changing models, ensure the `embedding_dim` in `ScyllaDBCache.__init__` matches
+- If changing models, ensure the `embedding_dim` in both cache classes matches
+
+### Similarity Functions
+- **Cosine**: Default, best for normalized embeddings (matches ScyllaDB behavior)
+- **L2**: Euclidean distance
+- **Inner Product**: Negative inner product (pgvector uses `<#>`)
+- **L1**: Manhattan distance
+- Configurable via `--similarity-function` argument
 
 ### Cache Key Generation
 - Primary key: SHA256 hash of the prompt text
@@ -97,6 +118,7 @@ All configuration follows this precedence order:
 2. Test with `--with-cache none` to ensure graceful degradation
 3. Verify embedding dimension compatibility
 4. Update database schema if needed
+5. For pgvector changes, remember to use `await` for async methods
 
 ### Changing AI Models
 1. Check model availability in Anthropic API
@@ -109,11 +131,13 @@ All configuration follows this precedence order:
 ### Manual Testing Checklist
 - [ ] Run with `--with-cache none` (no database required)
 - [ ] Run with `--with-cache scylla` (requires ScyllaDB)
-- [ ] Test cache hit scenario (run same prompt twice)
+- [ ] Run with `--with-cache pgvector` (requires PostgreSQL)
+- [ ] Test cache hit scenario (run same prompt twice with each backend)
 - [ ] Test all CLI arguments override env vars
 - [ ] Verify missing API key raises clear error
 - [ ] Test with different Claude models
 - [ ] Test with different SentenceTransformer models
+- [ ] Test different similarity functions (cosine, l2, inner_product, l1)
 
 ### Edge Cases to Consider
 - Empty or very short prompts

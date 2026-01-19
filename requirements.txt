@@ -8,6 +8,10 @@ anthropic>=0.34.0
 # ScyllaDB database driver
 scylla-driver>=3.26.0
 
+# PostgreSQL with pgvector support
+psycopg[binary]>=3.1.0
+pgvector>=0.3.0
+
 # Sentence transformers for embeddings
 sentence-transformers>=2.2.2
 
