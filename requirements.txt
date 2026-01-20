@@ -5,6 +5,9 @@ autogen-core>=0.4.0
 # Anthropic API client
 anthropic>=0.34.0
 
+# Tokenizer for autogen (required by autogen_ext.models.anthropic)
+tiktoken>=0.5.0
+
 # ScyllaDB database driver
 scylla-driver>=3.26.0
 
