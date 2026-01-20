@@ -142,10 +142,37 @@ The tool automatically looks up the cloud provider ID, region ID, and instance t
 ```
 
 Output includes:
-- Cluster ID and status
-- Connection endpoints
-- Credentials (if available)
-- Port numbers
+- Cluster ID
+- Broadcast type (PUBLIC/PRIVATE)
+- Credentials (username and password)
+- DNS hostnames for connection
+- Public and private IP addresses
+- Datacenter information
+
+**Example output:**
+```
+Connection Information for 'mycluster':
+Cluster ID: 12345
+Broadcast Type: PUBLIC
+
+Credentials:
+  Username: scylla
+  Password: your-password-here
+
+Datacenter: AWS_US_EAST_1
+  DNS Hostnames:
+    node-0.aws-us-east-1.xxxxx.clusters.scylla.cloud
+    node-1.aws-us-east-1.xxxxx.clusters.scylla.cloud
+    node-2.aws-us-east-1.xxxxx.clusters.scylla.cloud
+  Public IPs:
+    1.2.3.4
+    5.6.7.8
+    9.10.11.12
+  Private IPs:
+    172.31.0.1
+    172.31.0.2
+    172.31.0.3
+```
 
 **Note**: The `info` command automatically resolves request IDs to cluster IDs. If the stored cluster ID is actually a request ID (from an older state file or incomplete creation), the tool will fetch the actual cluster ID and update the state file.
 

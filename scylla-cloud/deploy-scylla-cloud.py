@@ -195,33 +195,42 @@ class ScyllaCloudClient:
         else:
             cluster_id = cluster_id_or_request_id
         
-        cluster = self.get_cluster(account_id, cluster_id)
+        # Use the dedicated connection endpoint
+        url = f"{API_BASE_URL}/account/{account_id}/cluster/connect?clusterId={cluster_id}"
         
         if self.debug:
-            print(f"\n=== DEBUG: Parsing cluster data ===")
-            print(f"Raw cluster keys: {list(cluster.keys())}")
-            print(f"Cluster 'data' keys: {list(cluster.get('data', {}).keys())}")
+            print(f"\n=== DEBUG: GET {url} ===")
+            print(f"Headers: {json.dumps({k: v for k, v in self.headers.items() if k != 'Authorization'}, indent=2)}")
         
-        # Extract cluster data from nested structure
-        cluster_data = cluster.get("data", {}).get("cluster", {})
-        datacenters = cluster_data.get("dataCenters", [])
+        response = requests.get(url, headers=self.headers)
         
         if self.debug:
-            print(f"Cluster 'clusterName': {cluster_data.get('clusterName')}")
-            print(f"Cluster 'status': {cluster_data.get('status')}")
-            print(f"Cluster 'dataCenters': {datacenters}")
+            print(f"\nResponse Status: {response.status_code}")
+            print(f"Response Headers: {json.dumps(dict(response.headers), indent=2)}")
+            try:
+                print(f"Response Body: {json.dumps(response.json(), indent=2)}")
+            except:
+                print(f"Response Body: {response.text}")
             print("=== END DEBUG ===")
+        
+        response.raise_for_status()
+        
+        result = response.json()
+        
+        # Parse the connect endpoint response structure
+        # Returns: {data: {broadcastType, credentials, connectDataCenters}}
+        data = result.get("data", {})
+        credentials = data.get("credentials", {})
+        datacenters = data.get("connectDataCenters", [])
         
         return {
             "cluster_id": cluster_id,
-            "name": cluster_data.get("clusterName"),
-            "status": cluster_data.get("status"),
-            "datacenter": datacenters[0] if datacenters else {},
-            "dataCenters": datacenters,
-            "connection": cluster_data.get("connection", {}),
-            "grafanaUrl": cluster_data.get("grafanaUrl"),
-            "cloudProvider": cluster_data.get("cloudProviderId"),
-            "scyllaVersion": cluster_data.get("scyllaVersion")
+            "broadcastType": data.get("broadcastType"),
+            "credentials": {
+                "username": credentials.get("username"),
+                "password": credentials.get("password")
+            },
+            "dataCenters": datacenters
         }
     
     def get_account_info(self) -> Dict[str, Any]:
@@ -735,24 +744,36 @@ def cmd_info(args):
         if args.format == "text":
             print(f"Connection Information for '{args.name}':")
             print(f"Cluster ID: {result.get('cluster_id')}")
-            print(f"Cluster Name: {result.get('name')}")
-            print(f"Status: {result.get('status')}")
-            print(f"ScyllaDB Version: {result.get('scyllaVersion')}")
+            print(f"Broadcast Type: {result.get('broadcastType')}")
             
-            connection = result.get("connection", {})
-            if connection:
-                print(f"\nConnection Details:")
-                for key, value in connection.items():
-                    print(f"  {key}: {value}")
+            credentials = result.get("credentials", {})
+            if credentials:
+                print(f"\nCredentials:")
+                print(f"  Username: {credentials.get('username')}")
+                print(f"  Password: {credentials.get('password')}")
             
-            datacenter = result.get("datacenter", {})
-            if datacenter and datacenter.get("clientConnection"):
-                print(f"\nContact Points:")
-                for host in datacenter.get("clientConnection", []):
-                    print(f"  {host}")
-            
-            if result.get("grafanaUrl"):
-                print(f"\nGrafana URL: {result.get('grafanaUrl')}")
+            datacenters = result.get("dataCenters", [])
+            if datacenters:
+                for dc in datacenters:
+                    print(f"\nDatacenter: {dc.get('dcName')}")
+                    
+                    dns_hosts = dc.get('dns', [])
+                    if dns_hosts:
+                        print(f"  DNS Hostnames:")
+                        for host in dns_hosts:
+                            print(f"    {host}")
+                    
+                    public_ips = dc.get('publicIPs', [])
+                    if public_ips:
+                        print(f"  Public IPs:")
+                        for ip in public_ips:
+                            print(f"    {ip}")
+                    
+                    private_ips = dc.get('privateIPs', [])
+                    if private_ips:
+                        print(f"  Private IPs:")
+                        for ip in private_ips:
+                            print(f"    {ip}")
         
         output_result(result, args.format)
         

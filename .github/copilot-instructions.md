@@ -272,7 +272,7 @@ Provides a command-line interface for:
   - Shows HTTP method and URL for every request
   - Logs request headers (Authorization header masked)
   - Displays complete response status, headers, and body
-  - Includes data parsing details for complex responses (e.g., get_connection_info shows raw cluster keys and values)
+  - Helpful for diagnosing API changes or unexpected response formats
 
 #### `StateManager` Class
 - Persists cluster information locally
@@ -346,6 +346,7 @@ Same as main tool:
   - `/account/{accountId}/cluster` (POST) - Create cluster (returns requestId, not clusterId)
   - `/account/{accountId}/cluster/request/{requestId}` (GET) - Resolve request ID to cluster ID and details
   - `/account/{accountId}/cluster/{clusterId}` (GET) - Get cluster details by cluster ID
+  - `/account/{accountId}/cluster/connect?clusterId={clusterId}` (GET) - Get connection information (credentials, DNS, IPs)
   - `/account/{accountId}/cluster/{clusterId}/delete` (POST) - Delete cluster (POST, not DELETE)
   - `/account/{accountId}/clusters` (GET) - List all clusters for account
   - `/account/default` (GET) - Get default account information
@@ -366,13 +367,16 @@ The deployment tool creates clusters that are then used by `ai_agent_with_cache.
 
 ### Important Implementation Fixes
 - **Delete Cluster**: Use POST to `/account/{accountId}/cluster/{clusterId}/delete`, not DELETE to `/cluster/{clusterId}`
-- **Cluster Info**: Parse nested `{"data": {"cluster": {...}}}` structure correctly
+- **Connection Info**: Use dedicated `/account/{accountId}/cluster/connect?clusterId={clusterId}` endpoint
+  - Returns connection-focused data: credentials, DNS hostnames, public/private IPs
+  - Response structure: `{data: {broadcastType, credentials: {username, password}, connectDataCenters: [{dcName, publicIPs, privateIPs, dns}]}}`
+  - Simpler parsing than full cluster details endpoint
 - **ID Resolution**: Add `get_cluster_from_request()` method to resolve request IDs to cluster IDs
 - **State Management**: Use `update_cluster()` method to update existing cluster state (e.g., after resolving request ID)
 - Clear error messages with HTTP response details
 - State remains consistent even on failures
 - Debug mode (`--debug` flag) provides full request/response details for troubleshooting:
-  - All API methods (create, get, list, delete, get_account_info) include debug logging
+  - All API methods (create, get, list, delete, get_account_info, get_connection_info) include debug logging
   - Shows exact API endpoints called and response data structures
   - Helpful for diagnosing API changes or unexpected response formats
 
