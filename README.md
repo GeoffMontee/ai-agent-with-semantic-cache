@@ -409,10 +409,24 @@ The tool automatically waits 5 seconds for index initialization. If you still se
 
 Compare the performance of ScyllaDB and PostgreSQL pgvector backends using the included benchmark script:
 
+**With local PostgreSQL:**
 ```bash
 ./benchmark.py --backends both \
   --postgres-password postgres \
   --scylla-contact-points "your-host.com" \
+  --scylla-user scylla \
+  --scylla-password "your-password"
+```
+
+**With remote PostgreSQL:**
+```bash
+./benchmark.py --backends both \
+  --postgres-host db.example.com \
+  --postgres-port 5432 \
+  --postgres-user myuser \
+  --postgres-password mypassword \
+  --postgres-database mydb \
+  --scylla-contact-points "node-0.scylla.cloud,node-1.scylla.cloud" \
   --scylla-user scylla \
   --scylla-password "your-password"
 ```
@@ -429,8 +443,16 @@ The benchmark tests four key scenarios:
 ### Benchmark Options
 
 ```bash
-# Test only PostgreSQL
+# Test only PostgreSQL (local)
 ./benchmark.py --backends pgvector
+
+# Test PostgreSQL with remote instance
+./benchmark.py --backends pgvector \
+  --postgres-host db.example.com \
+  --postgres-port 5432 \
+  --postgres-user myuser \
+  --postgres-password mypassword \
+  --postgres-database mydb
 
 # Test only ScyllaDB
 ./benchmark.py --backends scylla
