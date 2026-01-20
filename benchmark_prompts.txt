@@ -45,9 +45,154 @@ What is version control?
 How does garbage collection work?
 What is a hash table?
 
-# Short prompts
-Hello
-Hi there
+# Programming concepts
+What is object-oriented programming?
+Explain functional programming
+What are design patterns?
+How does recursion work?
+What is polymorphism?
+Explain dependency injection
+What is SOLID principles?
+How do promises work in JavaScript?
+What is test-driven development?
+Explain the MVC pattern
+
+# Data structures and algorithms
+What is a linked list?
+Explain depth-first search
+How does merge sort work?
+What is dynamic programming?
+Explain the traveling salesman problem
+What is Big O notation?
+How does a queue differ from a stack?
+What is a red-black tree?
+Explain Dijkstra's algorithm
+What is a trie data structure?
+
+# Database questions
+What is database normalization?
+Explain SQL vs NoSQL
+How do database indexes work?
+What is ACID in databases?
+Explain database sharding
+What is a foreign key?
+How does database replication work?
+What is eventual consistency?
+Explain CAP theorem
+What is a database transaction?
+
+# Web development
+What is server-side rendering?
+Explain progressive web apps
+How does CORS work?
+What is WebSocket?
+Explain OAuth 2.0
+What is GraphQL?
+How does CDN work?
+What is responsive design?
+Explain lazy loading
+What is service worker?
+
+# Cloud and DevOps
+What is Infrastructure as Code?
+Explain blue-green deployment
+How does load balancing work?
+What is container orchestration?
+Explain serverless computing
+What is CI/CD pipeline?
+How does auto-scaling work?
+What is infrastructure monitoring?
+Explain chaos engineering
+What is gitops?
+
+# Security topics
+What is SQL injection?
+Explain cross-site scripting
+How does two-factor authentication work?
+What is end-to-end encryption?
+Explain zero trust security
+What is a DDoS attack?
+How does public key cryptography work?
+What is penetration testing?
+Explain security by design
+What is OAuth vs OpenID?
+
+# Business and product
+What is product-market fit?
+Explain agile methodology
+How does scrum work?
+What is a minimum viable product?
+Explain user story mapping
+What is customer acquisition cost?
+How does A/B testing work?
+What is growth hacking?
+Explain OKRs
+What is design thinking?
+
+# Science and mathematics
+What is the Fibonacci sequence?
+Explain the Pythagorean theorem
+How does probability work?
+What is calculus used for?
+Explain statistical significance
+What is the scientific method?
+How does evolution work?
+What is entropy?
+Explain the periodic table
+What is string theory?
+
+# General knowledge
+What is climate change?
+Explain renewable energy
+How does the stock market work?
+What is artificial intelligence?
+Explain supply and demand
+What is cryptocurrency?
+How does GPS work?
+What is the greenhouse effect?
+Explain urban planning
+What is biodiversity?
+
+# Short technical queries
+What is Git?
+Explain API
+How does HTTPS work?
+What is JSON?
+Define scalability
+Explain caching
+What is latency?
+How does DNS work?
+What is bandwidth?
+Define throughput?
+
+# Long-form questions
+Can you explain the complete process of how a modern web application handles a user request from the moment they click a button in their browser through all the network layers, server processing, database queries, and back to rendering the response in the browser, including all intermediate steps and technologies involved?
+What are the key differences between monolithic and microservices architectures in terms of deployment, scaling, maintenance, team organization, technology choices, and when would you recommend using one over the other in a real-world enterprise application?
+How would you design a highly available, fault-tolerant distributed system that needs to handle millions of requests per second, ensure data consistency across multiple geographic regions, and maintain sub-100ms latency for end users?
+
+# Edge cases and special prompts
+How does Kubernetes differ from Docker Swarm?
+What are the tradeoffs between SQL and NoSQL databases?
+Explain the difference between authentication and authorization
+How do you optimize database query performance?
+What is the difference between horizontal and vertical scaling?
+Explain eventual consistency in distributed systems
+How does garbage collection work in different programming languages?
+What are the best practices for API versioning?
+Explain the concept of idempotency in REST APIs
+How do you handle database migrations in production?
+
+# Additional diverse topics
+What is sentiment analysis?
+Explain natural language processing
+How does image recognition work?
+What is reinforcement learning?
+Explain transfer learning
+What is a neural network architecture?
+How does batch normalization work?
+What is gradient descent?
+Explain backpropagation
+What is overfitting in machine learning?
 What?
 Why?
 How?

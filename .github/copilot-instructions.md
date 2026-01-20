@@ -487,13 +487,14 @@ Compares cache performance between ScyllaDB and PostgreSQL pgvector with multipl
 - Cache hit performance (repeated queries)
 - Semantic similarity matching (similar prompt detection)
 - Cache miss performance (lookup + write)
-- Scale testing (varying cache sizes)
+- **Concurrency testing** (concurrent reads, writes, and mixed workloads)
 
 ### Architecture
 - **Multi-scenario Testing**: Four distinct test cases covering different usage patterns
+- **Concurrency Testing**: asyncio-based concurrent operations with semaphore-controlled concurrency levels
 - **Flexible Backends**: Test pgvector, ScyllaDB, or both simultaneously
-- **Detailed Metrics**: Reports p50, p95, p99, max, and mean latencies
-- **Configurable Prompts**: Uses `benchmark_prompts.txt` for test data (easily customizable)
+- **Detailed Metrics**: Reports p50, p95, p99, max, mean latencies, and QPS (queries per second)
+- **Configurable Prompts**: Uses `benchmark_prompts.txt` for test data (200+ prompts, easily customizable)
 - **Results Export**: Supports JSON and CSV output formats
 
 ### Key Components
@@ -502,38 +503,66 @@ Compares cache performance between ScyllaDB and PostgreSQL pgvector with multipl
 1. **Cache Hit Performance**: Queries same prompt 100 times to measure pure retrieval speed
 2. **Semantic Similarity Matching**: Tests if semantically similar prompts trigger cache hits (measures actual semantic caching value)
 3. **Cache Miss Performance**: Measures lookup latency before Claude query + write latency after
-4. **Scale Testing**: Pre-populates cache with varying numbers of entries (1, 10, 100, etc.)
+4. **Concurrency Testing** (optional): Tests performance under concurrent load with configurable concurrency levels
 
 #### Benchmark Functions
 - `load_prompts()`: Loads prompts from text file, ignoring comments and empty lines
 - `benchmark_cache_hits()`: Repeated queries with same embedding to measure consistent performance
 - `benchmark_semantic_similarity()`: Tests cache hit rate for similar but not identical prompts
 - `benchmark_cache_misses()`: Measures both lookup and write latencies for new prompts
+- `benchmark_concurrent_reads()`: Tests concurrent cache lookups with asyncio.Semaphore for concurrency control
+- `benchmark_concurrent_writes()`: Tests concurrent cache inserts to measure write contention
+- `benchmark_mixed_workload()`: Tests realistic 80% read / 20% write ratio under concurrent load
 - `calculate_percentiles()`: Computes p50, p95, p99, max, and mean from latency distributions
-- `run_benchmark_suite()`: Orchestrates complete test suite for a single backend
-- `print_comparison_table()`: Formats side-by-side comparison of multiple backends
+- `run_benchmark_suite()`: Orchestrates complete test suite for a single backend (including optional concurrency tests)
+- `print_comparison_table()`: Formats side-by-side comparison of multiple backends (including concurrency results)
 - `save_results()`: Exports results to JSON or CSV files
+
+#### Concurrency Testing Implementation
+- **asyncio-based**: Uses async/await with asyncio.Semaphore for precise concurrency control
+- **ScyllaDB Handling**: Wraps synchronous ScyllaDB operations with `asyncio.to_thread()` for compatibility
+- **PgVectorCache**: Already async-ready, no wrapping needed
+- **Metrics**: Reports QPS, latency percentiles, and success/failure rates
+- **Test Types**:
+  - Concurrent reads: Multiple simultaneous cache lookups (tests read scalability)
+  - Concurrent writes: Multiple simultaneous inserts (tests write contention and locking)
+  - Mixed workload: 80% reads / 20% writes (tests real-world scenarios)
 
 #### Prompt File Structure (`benchmark_prompts.txt`)
 - Lines starting with `#` are comments (ignored)
 - Empty lines are ignored
-- Organized into categories:
-  - **Base prompts** (lines 1-5): Initial cache population
-  - **Similar variants** (lines 6-10): Semantic similarity testing
-  - **Diverse prompts** (lines 11-25): Cache miss testing
-  - **Technical questions** (lines 26-35): Realistic workload
-  - **Edge cases** (short/long prompts): Boundary testing
+- **200+ prompts** organized into categories:
+  - **Base prompts** (5 prompts): Initial cache population
+  - **Similar variants** (5 prompts): Semantic similarity testing
+  - **Diverse prompts** (15 prompts): Cache miss testing
+  - **Programming concepts** (10 prompts): OOP, functional programming, design patterns
+  - **Data structures** (10 prompts): Trees, graphs, algorithms
+  - **Database questions** (10 prompts): SQL, NoSQL, ACID, CAP theorem
+  - **Web development** (10 prompts): SSR, PWA, WebSocket, GraphQL
+  - **Cloud and DevOps** (10 prompts): IaC, CI/CD, containers
+  - **Security topics** (10 prompts): XSS, encryption, authentication
+  - **Business and product** (10 prompts): Agile, MVP, OKRs
+  - **Science and mathematics** (10 prompts): Calculus, probability, physics
+  - **General knowledge** (10 prompts): Climate, economics, technology
+  - **Short technical queries** (10 prompts): Git, API, HTTPS, JSON
+  - **Long-form questions** (3 prompts): Complex multi-part questions
+  - **Edge cases** (10 prompts): Tradeoffs, comparisons, optimizations
+  - **ML/AI topics** (10 prompts): NLP, computer vision, neural networks
 
 ### Configuration
 - **Backends**: `--backends pgvector|scylla|both` (default: both)
 - **Prompts File**: `--prompts-file` (default: benchmark_prompts.txt)
 - **Embedding Model**: `--sentence-transformer-model` (default: all-MiniLM-L6-v2)
 - **Output Format**: `--output json|csv|none` (default: none)
+- **Concurrency Options**:
+  - `--concurrency-test`: Enable concurrency testing (flag)
+  - `--concurrency-levels`: Comma-separated levels (default: "1,5,10,25")
+  - `--concurrent-operations`: Total operations per test (default: 100)
 - **Database Connection**: Same options as main AI agent tool
 
 ### Integration with Cache Backends
 - **PostgreSQL pgvector**: Uses async connection, awaits all cache operations
-- **ScyllaDB**: Uses synchronous connection, no await needed
+- **ScyllaDB**: Uses synchronous connection, wrapped with `asyncio.to_thread()` for concurrency tests
 - **Separate Keyspaces/Schemas**: Uses `llm_cache_benchmark` to avoid conflicts with production data
 
 ### Results Interpretation
@@ -541,6 +570,9 @@ Compares cache performance between ScyllaDB and PostgreSQL pgvector with multipl
 - **Semantic Hit Rate**: Indicates how well the cache matches similar prompts
 - **p50 vs p99**: Shows consistency - large gaps indicate variable performance
 - **Write Latency**: Important for cache miss scenarios (how fast can we populate cache)
+- **QPS (Queries Per Second)**: Throughput at given concurrency level
+- **Concurrency Scaling**: How latency and throughput change with increased concurrency
+- **Mixed Workload Performance**: Realistic performance under typical read-heavy workloads
 
 ### Usage Examples
 ```bash
@@ -560,6 +592,14 @@ Compares cache performance between ScyllaDB and PostgreSQL pgvector with multipl
 
 # Use custom test prompts
 ./benchmark.py --prompts-file custom_prompts.txt
+
+# Run concurrency tests with default levels (1, 5, 10, 25)
+./benchmark.py --backends both --concurrency-test
+
+# Run concurrency tests with custom levels
+./benchmark.py --backends pgvector --concurrency-test \
+  --concurrency-levels "1,10,50,100" \
+  --concurrent-operations 200
 ```
 
 ### Performance Considerations
@@ -568,6 +608,9 @@ Compares cache performance between ScyllaDB and PostgreSQL pgvector with multipl
 - **Network Latency**: Cloud backends show 100-300ms latencies primarily due to network
 - **Local Backends**: Should show <5ms latencies for cache hits
 - **Semantic Matching**: Hit rate depends on similarity threshold and index configuration
+- **Concurrency Overhead**: asyncio adds minimal overhead for I/O-bound operations
+- **Connection Pooling**: Concurrency tests show real-world behavior with pool limits
+- **GIL Limitations**: Python GIL doesn't affect I/O-bound database operations significantly
 
 ### Testing Recommendations for Benchmark Tool
 - [ ] Test with both backends simultaneously
@@ -577,15 +620,17 @@ Compares cache performance between ScyllaDB and PostgreSQL pgvector with multipl
 - [ ] Verify CSV output format is valid
 - [ ] Test with different SentenceTransformer models
 - [ ] Compare local vs cloud deployment performance
-- [ ] Test with large prompt files (100+ prompts)
+- [ ] Test with large prompt files (200+ prompts now available)
 - [ ] Test with empty cache (cold start)
 - [ ] Test with pre-populated cache (warm start)
+- [ ] Test concurrency with different levels (1, 5, 10, 25, 50, 100)
+- [ ] Verify QPS increases with concurrency (up to a point)
+- [ ] Test connection pool limits under high concurrency
+- [ ] Compare concurrent vs sequential performance
 
 ## Future Enhancement Ideas
 
 ### Performance Benchmark Tool
-- Add throughput testing (queries per second)
-- Add concurrent query testing (multiple parallel requests)
 - Add memory usage tracking
 - Add cache size vs performance analysis
 - Support for custom similarity thresholds

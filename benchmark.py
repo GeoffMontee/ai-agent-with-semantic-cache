@@ -137,7 +137,169 @@ def calculate_percentiles(latencies):
     }
 
 
-async def run_benchmark_suite(cache_type, cache, embedder, prompts, is_async=False):
+async def benchmark_concurrent_reads(cache, embeddings, concurrency_level=10, total_operations=100, is_async=False):
+    """Benchmark concurrent cache read performance."""
+    
+    async def read_task(embedding):
+        start = time.perf_counter()
+        if is_async:
+            result = await cache.get_cached_response(embedding)
+        else:
+            result = await asyncio.to_thread(cache.get_cached_response, embedding)
+        end = time.perf_counter()
+        return (end - start) * 1000, result is not None
+    
+    # Use semaphore to control concurrency
+    semaphore = asyncio.Semaphore(concurrency_level)
+    
+    async def limited_task(embedding):
+        async with semaphore:
+            return await read_task(embedding)
+    
+    # Create tasks: distribute operations across available embeddings
+    tasks = []
+    for i in range(total_operations):
+        embedding = embeddings[i % len(embeddings)]
+        tasks.append(limited_task(embedding))
+    
+    # Record start time for throughput calculation
+    suite_start = time.perf_counter()
+    results = await asyncio.gather(*tasks)
+    suite_end = time.perf_counter()
+    
+    latencies = [r[0] for r in results]
+    successes = sum(1 for r in results if r[1])
+    total_time = suite_end - suite_start
+    
+    return {
+        'latencies': latencies,
+        'total_operations': len(results),
+        'successes': successes,
+        'failures': len(results) - successes,
+        'total_time_seconds': total_time,
+        'qps': len(results) / total_time if total_time > 0 else 0,
+        'concurrency_level': concurrency_level
+    }
+
+
+async def benchmark_concurrent_writes(cache, prompts, embedder, concurrency_level=10, total_operations=100, is_async=False):
+    """Benchmark concurrent cache write performance."""
+    
+    # Pre-generate embeddings
+    embeddings = [embedder.encode(prompts[i % len(prompts)]) for i in range(total_operations)]
+    
+    async def write_task(prompt, embedding, idx):
+        start = time.perf_counter()
+        if is_async:
+            await cache.cache_response(f"{prompt}_write_{idx}", embedding, f"Response for: {prompt}")
+        else:
+            await asyncio.to_thread(cache.cache_response, f"{prompt}_write_{idx}", embedding, f"Response for: {prompt}")
+        end = time.perf_counter()
+        return (end - start) * 1000
+    
+    # Use semaphore to control concurrency
+    semaphore = asyncio.Semaphore(concurrency_level)
+    
+    async def limited_task(prompt, embedding, idx):
+        async with semaphore:
+            return await write_task(prompt, embedding, idx)
+    
+    # Create tasks
+    tasks = []
+    for i in range(total_operations):
+        prompt = prompts[i % len(prompts)]
+        embedding = embeddings[i]
+        tasks.append(limited_task(prompt, embedding, i))
+    
+    # Record start time for throughput calculation
+    suite_start = time.perf_counter()
+    latencies = await asyncio.gather(*tasks)
+    suite_end = time.perf_counter()
+    
+    total_time = suite_end - suite_start
+    
+    return {
+        'latencies': latencies,
+        'total_operations': len(latencies),
+        'total_time_seconds': total_time,
+        'qps': len(latencies) / total_time if total_time > 0 else 0,
+        'concurrency_level': concurrency_level
+    }
+
+
+async def benchmark_mixed_workload(cache, embeddings, prompts, embedder, concurrency_level=10, total_operations=100, read_ratio=0.8, is_async=False):
+    """Benchmark mixed read/write workload (default 80% reads, 20% writes)."""
+    
+    num_reads = int(total_operations * read_ratio)
+    num_writes = total_operations - num_reads
+    
+    async def read_task(embedding):
+        start = time.perf_counter()
+        if is_async:
+            result = await cache.get_cached_response(embedding)
+        else:
+            result = await asyncio.to_thread(cache.get_cached_response, embedding)
+        end = time.perf_counter()
+        return ('read', (end - start) * 1000, result is not None)
+    
+    async def write_task(prompt, embedding, idx):
+        start = time.perf_counter()
+        if is_async:
+            await cache.cache_response(f"{prompt}_mixed_{idx}", embedding, f"Response for: {prompt}")
+        else:
+            await asyncio.to_thread(cache.cache_response, f"{prompt}_mixed_{idx}", embedding, f"Response for: {prompt}")
+        end = time.perf_counter()
+        return ('write', (end - start) * 1000, True)
+    
+    # Use semaphore to control concurrency
+    semaphore = asyncio.Semaphore(concurrency_level)
+    
+    async def limited_read(embedding):
+        async with semaphore:
+            return await read_task(embedding)
+    
+    async def limited_write(prompt, embedding, idx):
+        async with semaphore:
+            return await write_task(prompt, embedding, idx)
+    
+    # Create mixed tasks
+    tasks = []
+    for i in range(num_reads):
+        embedding = embeddings[i % len(embeddings)]
+        tasks.append(limited_read(embedding))
+    
+    for i in range(num_writes):
+        prompt = prompts[i % len(prompts)]
+        embedding = embedder.encode(f"{prompt}_mixed_{i}")
+        tasks.append(limited_write(prompt, embedding, i))
+    
+    # Shuffle for realistic interleaving
+    import random
+    random.shuffle(tasks)
+    
+    # Record start time for throughput calculation
+    suite_start = time.perf_counter()
+    results = await asyncio.gather(*tasks)
+    suite_end = time.perf_counter()
+    
+    read_latencies = [r[1] for r in results if r[0] == 'read']
+    write_latencies = [r[1] for r in results if r[0] == 'write']
+    total_time = suite_end - suite_start
+    
+    return {
+        'read_latencies': read_latencies,
+        'write_latencies': write_latencies,
+        'total_operations': len(results),
+        'read_operations': len(read_latencies),
+        'write_operations': len(write_latencies),
+        'total_time_seconds': total_time,
+        'qps': len(results) / total_time if total_time > 0 else 0,
+        'concurrency_level': concurrency_level,
+        'read_ratio': read_ratio
+    }
+
+
+async def run_benchmark_suite(cache_type, cache, embedder, prompts, is_async=False, concurrency_test=False, concurrency_levels=None, concurrent_operations=100):
     """Run complete benchmark suite for a cache backend."""
     print(f"\n{'='*80}")
     print(f"Benchmarking {cache_type.upper()} Cache Backend")
@@ -155,7 +317,11 @@ async def run_benchmark_suite(cache_type, cache, embedder, prompts, is_async=Fal
     diverse_prompts = prompts[10:25]  # Next 15 (diverse topics)
     
     # Pre-populate cache with base prompts
-    print("\n[1/4] Pre-populating cache with base prompts...")
+    test_num = 1
+    total_tests = 4 + (3 * len(concurrency_levels) if concurrency_test and concurrency_levels else 0)
+    
+    print(f"\n[{test_num}/{total_tests}] Pre-populating cache with base prompts...")
+    test_num += 1
     base_embeddings = [embedder.encode(p) for p in base_prompts]
     for prompt, embedding in zip(base_prompts, base_embeddings):
         if is_async:
@@ -165,7 +331,8 @@ async def run_benchmark_suite(cache_type, cache, embedder, prompts, is_async=Fal
     print(f"✓ Cached {len(base_prompts)} base prompts")
     
     # Test 1: Cache Hit Performance
-    print("\n[2/4] Testing cache hit performance (same prompt, 100 iterations)...")
+    print(f"\n[{test_num}/{total_tests}] Testing cache hit performance (same prompt, 100 iterations)...")
+    test_num += 1
     hit_latencies = await benchmark_cache_hits(cache, base_embeddings, num_iterations=100, is_async=is_async)
     results['cache_hits'] = calculate_percentiles(hit_latencies)
     print(f"✓ Completed 100 cache hit queries")
@@ -174,7 +341,8 @@ async def run_benchmark_suite(cache_type, cache, embedder, prompts, is_async=Fal
     print(f"  - p99: {results['cache_hits']['p99']:.2f}ms")
     
     # Test 2: Semantic Similarity
-    print("\n[3/4] Testing semantic similarity matching...")
+    print(f"\n[{test_num}/{total_tests}] Testing semantic similarity matching...")
+    test_num += 1
     similarity_results = await benchmark_semantic_similarity(
         cache, base_prompts, similar_prompts, embedder, is_async=is_async
     )
@@ -190,7 +358,8 @@ async def run_benchmark_suite(cache_type, cache, embedder, prompts, is_async=Fal
     print(f"  - p50 latency: {results['semantic_similarity']['latencies']['p50']:.2f}ms")
     
     # Test 3: Cache Miss Performance
-    print("\n[4/4] Testing cache miss performance (diverse prompts)...")
+    print(f"\n[{test_num}/{total_tests}] Testing cache miss performance (diverse prompts)...")
+    test_num += 1
     miss_results = await benchmark_cache_misses(cache, diverse_prompts, embedder, is_async=is_async)
     results['cache_misses'] = {
         'lookup': calculate_percentiles(miss_results['lookup_latencies']),
@@ -199,6 +368,68 @@ async def run_benchmark_suite(cache_type, cache, embedder, prompts, is_async=Fal
     print(f"✓ Tested {len(diverse_prompts)} diverse prompts")
     print(f"  - Lookup p50: {results['cache_misses']['lookup']['p50']:.2f}ms")
     print(f"  - Write p50: {results['cache_misses']['write']['p50']:.2f}ms")
+    
+    # Concurrency Tests (if enabled)
+    if concurrency_test and concurrency_levels:
+        results['concurrency'] = {}
+        
+        for level in concurrency_levels:
+            # Concurrent Reads
+            print(f"\n[{test_num}/{total_tests}] Testing concurrent reads (concurrency={level}, operations={concurrent_operations})...")
+            test_num += 1
+            read_results = await benchmark_concurrent_reads(
+                cache, base_embeddings, concurrency_level=level,
+                total_operations=concurrent_operations, is_async=is_async
+            )
+            print(f"✓ Completed {read_results['total_operations']} concurrent read operations")
+            print(f"  - QPS: {read_results['qps']:.2f}")
+            print(f"  - p50: {calculate_percentiles(read_results['latencies'])['p50']:.2f}ms")
+            print(f"  - p95: {calculate_percentiles(read_results['latencies'])['p95']:.2f}ms")
+            
+            # Concurrent Writes
+            print(f"\n[{test_num}/{total_tests}] Testing concurrent writes (concurrency={level}, operations={concurrent_operations})...")
+            test_num += 1
+            write_results = await benchmark_concurrent_writes(
+                cache, diverse_prompts, embedder, concurrency_level=level,
+                total_operations=concurrent_operations, is_async=is_async
+            )
+            print(f"✓ Completed {write_results['total_operations']} concurrent write operations")
+            print(f"  - QPS: {write_results['qps']:.2f}")
+            print(f"  - p50: {calculate_percentiles(write_results['latencies'])['p50']:.2f}ms")
+            print(f"  - p95: {calculate_percentiles(write_results['latencies'])['p95']:.2f}ms")
+            
+            # Mixed Workload
+            print(f"\n[{test_num}/{total_tests}] Testing mixed workload (concurrency={level}, 80% reads / 20% writes)...")
+            test_num += 1
+            mixed_results = await benchmark_mixed_workload(
+                cache, base_embeddings, diverse_prompts, embedder,
+                concurrency_level=level, total_operations=concurrent_operations,
+                read_ratio=0.8, is_async=is_async
+            )
+            read_stats = calculate_percentiles(mixed_results['read_latencies'])
+            write_stats = calculate_percentiles(mixed_results['write_latencies'])
+            print(f"✓ Completed {mixed_results['total_operations']} mixed operations")
+            print(f"  - QPS: {mixed_results['qps']:.2f}")
+            print(f"  - Read p50: {read_stats['p50']:.2f}ms, Write p50: {write_stats['p50']:.2f}ms")
+            
+            results['concurrency'][f'level_{level}'] = {
+                'reads': {
+                    'latencies': calculate_percentiles(read_results['latencies']),
+                    'qps': read_results['qps'],
+                    'total_operations': read_results['total_operations']
+                },
+                'writes': {
+                    'latencies': calculate_percentiles(write_results['latencies']),
+                    'qps': write_results['qps'],
+                    'total_operations': write_results['total_operations']
+                },
+                'mixed': {
+                    'read_latencies': read_stats,
+                    'write_latencies': write_stats,
+                    'qps': mixed_results['qps'],
+                    'total_operations': mixed_results['total_operations']
+                }
+            }
     
     return results
 
@@ -244,6 +475,59 @@ def print_comparison_table(results_list):
         miss = r['cache_misses']
         print(f"{cache_type:<15} {miss['lookup']['p50']:<15.2f} {miss['lookup']['p95']:<15.2f} "
               f"{miss['write']['p50']:<15.2f} {miss['write']['p95']:<15.2f}")
+    
+    # Concurrency Performance (if available)
+    if any('concurrency' in r for r in results_list):
+        print("\n4. CONCURRENCY PERFORMANCE")
+        
+        # Get all concurrency levels
+        concurrency_levels = set()
+        for r in results_list:
+            if 'concurrency' in r:
+                concurrency_levels.update(r['concurrency'].keys())
+        
+        for level_key in sorted(concurrency_levels):
+            level = level_key.split('_')[1]
+            
+            # Concurrent Reads
+            print(f"\n4.1 Concurrent Reads (Level {level})")
+            print("-" * 80)
+            print(f"{'Backend':<15} {'QPS':<12} {'p50 (ms)':<12} {'p95 (ms)':<12} {'p99 (ms)':<12}")
+            print("-" * 80)
+            for r in results_list:
+                if 'concurrency' in r and level_key in r['concurrency']:
+                    cache_type = r['cache_type']
+                    reads = r['concurrency'][level_key]['reads']
+                    lat = reads['latencies']
+                    print(f"{cache_type:<15} {reads['qps']:<12.2f} {lat['p50']:<12.2f} "
+                          f"{lat['p95']:<12.2f} {lat['p99']:<12.2f}")
+            
+            # Concurrent Writes
+            print(f"\n4.2 Concurrent Writes (Level {level})")
+            print("-" * 80)
+            print(f"{'Backend':<15} {'QPS':<12} {'p50 (ms)':<12} {'p95 (ms)':<12} {'p99 (ms)':<12}")
+            print("-" * 80)
+            for r in results_list:
+                if 'concurrency' in r and level_key in r['concurrency']:
+                    cache_type = r['cache_type']
+                    writes = r['concurrency'][level_key]['writes']
+                    lat = writes['latencies']
+                    print(f"{cache_type:<15} {writes['qps']:<12.2f} {lat['p50']:<12.2f} "
+                          f"{lat['p95']:<12.2f} {lat['p99']:<12.2f}")
+            
+            # Mixed Workload
+            print(f"\n4.3 Mixed Workload (Level {level}, 80% reads / 20% writes)")
+            print("-" * 80)
+            print(f"{'Backend':<15} {'QPS':<12} {'Read p50':<12} {'Write p50':<12} {'Read p95':<12} {'Write p95':<12}")
+            print("-" * 80)
+            for r in results_list:
+                if 'concurrency' in r and level_key in r['concurrency']:
+                    cache_type = r['cache_type']
+                    mixed = r['concurrency'][level_key]['mixed']
+                    read_lat = mixed['read_latencies']
+                    write_lat = mixed['write_latencies']
+                    print(f"{cache_type:<15} {mixed['qps']:<12.2f} {read_lat['p50']:<12.2f} "
+                          f"{write_lat['p50']:<12.2f} {read_lat['p95']:<12.2f} {write_lat['p95']:<12.2f}")
     
     print("\n" + "="*80)
 
@@ -337,6 +621,25 @@ async def main():
         help="Save results to file (default: none)"
     )
     
+    # Concurrency testing options
+    parser.add_argument(
+        "--concurrency-test",
+        action="store_true",
+        help="Run concurrency benchmarks"
+    )
+    parser.add_argument(
+        "--concurrency-levels",
+        type=str,
+        default="1,5,10,25",
+        help="Comma-separated concurrency levels (default: 1,5,10,25)"
+    )
+    parser.add_argument(
+        "--concurrent-operations",
+        type=int,
+        default=100,
+        help="Total operations per concurrency test (default: 100)"
+    )
+    
     # ScyllaDB options
     parser.add_argument("--scylla-contact-points", type=str, default="127.0.0.1")
     parser.add_argument("--scylla-user", type=str, default="scylla")
@@ -370,6 +673,13 @@ async def main():
     embedder = SentenceTransformer(args.sentence_transformer_model)
     print("✓ Model loaded")
     
+    # Parse concurrency levels
+    concurrency_levels = None
+    if args.concurrency_test:
+        concurrency_levels = [int(x.strip()) for x in args.concurrency_levels.split(',')]
+        print(f"\n✓ Concurrency testing enabled with levels: {concurrency_levels}")
+        print(f"  Operations per test: {args.concurrent_operations}")
+    
     results_list = []
     
     # Benchmark each backend
@@ -390,7 +700,10 @@ async def main():
                 await cache.connect()
                 
                 results = await run_benchmark_suite(
-                    backend, cache, embedder, prompts, is_async=True
+                    backend, cache, embedder, prompts, is_async=True,
+                    concurrency_test=args.concurrency_test,
+                    concurrency_levels=concurrency_levels,
+                    concurrent_operations=args.concurrent_operations
                 )
                 results_list.append(results)
                 
@@ -422,7 +735,10 @@ async def main():
                     print("  Continuing anyway, but results may be affected...")
                 
                 results = await run_benchmark_suite(
-                    backend, cache, embedder, prompts, is_async=False
+                    backend, cache, embedder, prompts, is_async=False,
+                    concurrency_test=args.concurrency_test,
+                    concurrency_levels=concurrency_levels,
+                    concurrent_operations=args.concurrent_operations
                 )
                 results_list.append(results)
                 

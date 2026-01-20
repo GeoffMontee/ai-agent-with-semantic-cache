@@ -438,7 +438,7 @@ The benchmark tests four key scenarios:
 1. **Cache Hit Performance**: Queries the same cached prompt 100 times to measure pure retrieval speed
 2. **Semantic Similarity Matching**: Tests whether semantically similar prompts trigger cache hits
 3. **Cache Miss Performance**: Measures lookup + write latency for new prompts
-4. **Scale Testing**: Pre-populates cache with various dataset sizes
+4. **Concurrency Testing** (optional): Tests read/write performance under concurrent load
 
 ### Benchmark Options
 
@@ -464,13 +464,49 @@ The benchmark tests four key scenarios:
 ./benchmark.py --prompts-file my_prompts.txt
 ```
 
+### Concurrency Testing
+
+Test cache performance under concurrent load to measure throughput (QPS) and latency at different concurrency levels:
+
+```bash
+# Run concurrency tests with default levels (1, 5, 10, 25)
+./benchmark.py --backends both \
+  --concurrency-test \
+  --postgres-password postgres \
+  --scylla-contact-points "your-host.com" \
+  --scylla-user scylla \
+  --scylla-password "your-password"
+
+# Custom concurrency levels and operation count
+./benchmark.py --backends pgvector \
+  --concurrency-test \
+  --concurrency-levels "1,10,50,100" \
+  --concurrent-operations 200
+```
+
+Concurrency tests measure:
+- **Concurrent Reads**: Multiple simultaneous cache lookups (tests read scalability)
+- **Concurrent Writes**: Multiple simultaneous cache inserts (tests write contention)
+- **Mixed Workload**: Realistic 80% read / 20% write ratio (tests real-world performance)
+
+Each test reports:
+- **QPS (Queries Per Second)**: Throughput at the given concurrency level
+- **Latency Percentiles**: p50, p95, p99 latencies under concurrent load
+- **Success/Failure Rates**: Error rate under load
+
+**Use Cases:**
+- Comparing local vs remote database performance under load
+- Determining optimal concurrency for your workload
+- Identifying bottlenecks and scaling limits
+- Testing connection pool configurations
+
 ### Customizing Test Prompts
 
-Edit [benchmark_prompts.txt](benchmark_prompts.txt) to customize the prompts used in benchmarks. The file is organized into categories:
+Edit [benchmark_prompts.txt](benchmark_prompts.txt) to customize the prompts used in benchmarks. The file contains 200+ prompts organized into categories:
 - Base prompts (for cache population)
 - Semantically similar variants (for similarity testing)
 - Diverse prompts (for cache miss testing)
-- Technical and edge case prompts
+- Technical and edge case prompts (for realistic workloads)
 
 ### Sample Results
 
