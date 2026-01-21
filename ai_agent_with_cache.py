@@ -236,10 +236,6 @@ class PgVectorCache:
         if similarity_function not in self.similarity_ops:
             raise ValueError(f"Unknown similarity function: {similarity_function}. "
                            f"Supported: {list(self.similarity_ops.keys())}")
-        
-        # Prepared statement cache (initialized after connection)
-        self._select_stmt = None
-        self._insert_stmt = None
     
     async def connect(self):
         """Establish async connection pool to PostgreSQL."""
@@ -268,29 +264,6 @@ class PgVectorCache:
             await register_vector_async(conn)
         
         await self._setup_database()
-        
-        # Prepare statements after database is set up
-        await self._prepare_statements()
-    
-    async def _prepare_statements(self):
-        """Prepare frequently-used statements for better performance under concurrency."""
-        # Get operator for similarity function
-        operator = self.similarity_ops[self.similarity_function]["operator"]
-        
-        # Prepare SELECT query for cache lookups
-        self._select_stmt = f"""
-            SELECT prompt, response
-            FROM {self.schema}.{self.table}
-            ORDER BY embedding {operator} $1::vector
-            LIMIT 1
-        """
-        
-        # Prepare INSERT query for cache writes
-        self._insert_stmt = f"""
-            INSERT INTO {self.schema}.{self.table} (prompt_hash, prompt, embedding, response, created_at)
-            VALUES ($1, $2, $3::vector, $4, CURRENT_TIMESTAMP)
-            ON CONFLICT (prompt_hash) DO NOTHING
-        """
     
     async def _setup_database(self):
         """Create schema, table, and HNSW index with vector column."""
@@ -335,12 +308,20 @@ class PgVectorCache:
             Cached response or None
         """
         try:
+            # Get operator for similarity function
+            operator = self.similarity_ops[self.similarity_function]["operator"]
+            
             # Use connection from pool
             async with self.conn_pool.connection() as conn:
                 async with conn.cursor() as cur:
-                    # Use prepared statement with parameterized query
+                    # Use parameterized query with vector casting
                     await cur.execute(
-                        self._select_stmt,
+                        f"""
+                        SELECT prompt, response
+                        FROM {self.schema}.{self.table}
+                        ORDER BY embedding {operator} %s::vector
+                        LIMIT 1
+                        """,
                         (embedding.tolist() if isinstance(embedding, np.ndarray) else embedding,)
                     )
                     row = await cur.fetchone()
@@ -362,9 +343,13 @@ class PgVectorCache:
             # Use connection from pool
             async with self.conn_pool.connection() as conn:
                 async with conn.cursor() as cur:
-                    # Use prepared statement with parameterized query
+                    # Use parameterized query with vector casting
                     await cur.execute(
-                        self._insert_stmt,
+                        f"""
+                        INSERT INTO {self.schema}.{self.table} (prompt_hash, prompt, embedding, response, created_at)
+                        VALUES (%s, %s, %s::vector, %s, CURRENT_TIMESTAMP)
+                        ON CONFLICT (prompt_hash) DO NOTHING
+                        """,
                         (prompt_hash, prompt, embedding.tolist() if isinstance(embedding, np.ndarray) else embedding, response)
                     )
                     await conn.commit()
