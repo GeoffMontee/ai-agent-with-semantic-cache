@@ -174,7 +174,7 @@ class ScyllaDBCache:
         except Exception as e:
             # Check if this is a vector index error
             if "ANN ordering by vector requires the column to be indexed" in str(e):
-                print(f"✗ Vector index not ready yet. Try again in a few seconds.")
+                print(f"[-] Vector index not ready yet. Try again in a few seconds.")
             else:
                 print(f"Cache lookup error: {e}")
         
@@ -194,7 +194,7 @@ class ScyllaDBCache:
                 self._insert_stmt,
                 (prompt_hash, prompt, embedding_list, response, datetime.now())
             )
-            print("✓ Response cached successfully")
+            print("[+] Response cached successfully")
         except Exception as e:
             print(f"Cache storage error: {e}")
 
@@ -322,7 +322,7 @@ class PgVectorCache:
                     row = await cur.fetchone()
                     
                     if row:
-                        print(f"✓ Cache hit!")
+                        print(f"[+] Cache hit!")
                         return row[1]  # Return response
         except Exception as e:
             print(f"Cache lookup error: {e}")
@@ -348,7 +348,7 @@ class PgVectorCache:
                         (prompt_hash, prompt, embedding.tolist() if isinstance(embedding, np.ndarray) else embedding, response)
                     )
                     await conn.commit()
-            print("✓ Response cached successfully")
+            print("[+] Response cached successfully")
         except Exception as e:
             print(f"Cache storage error: {e}")
     
@@ -566,7 +566,7 @@ async def async_main():
             print("\n[Using cached response]")
         else:
             if cache:
-                print("✗ Cache miss - querying Claude...")
+                print("[-] Cache miss - querying Claude...")
             else:
                 print("\nQuerying Claude (caching disabled)...")
             

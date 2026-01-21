@@ -328,14 +328,14 @@ async def run_benchmark_suite(cache_type, cache, embedder, prompts, is_async=Fal
             await cache.cache_response(prompt, embedding, f"Response for: {prompt}")
         else:
             cache.cache_response(prompt, embedding, f"Response for: {prompt}")
-    print(f"✓ Cached {len(base_prompts)} base prompts")
+    print(f"[+] Cached {len(base_prompts)} base prompts")
     
     # Test 1: Cache Hit Performance
     print(f"\n[{test_num}/{total_tests}] Testing cache hit performance (same prompt, 100 iterations)...")
     test_num += 1
     hit_latencies = await benchmark_cache_hits(cache, base_embeddings, num_iterations=100, is_async=is_async)
     results['cache_hits'] = calculate_percentiles(hit_latencies)
-    print(f"✓ Completed 100 cache hit queries")
+    print(f"[+] Completed 100 cache hit queries")
     print(f"  - p50: {results['cache_hits']['p50']:.2f}ms")
     print(f"  - p95: {results['cache_hits']['p95']:.2f}ms")
     print(f"  - p99: {results['cache_hits']['p99']:.2f}ms")
@@ -352,7 +352,7 @@ async def run_benchmark_suite(cache_type, cache, embedder, prompts, is_async=Fal
         'hit_rate': similarity_results['hits'] / len(similar_prompts) * 100,
         'latencies': calculate_percentiles(similarity_results['latencies'])
     }
-    print(f"✓ Tested {len(similar_prompts)} semantically similar prompts")
+    print(f"[+] Tested {len(similar_prompts)} semantically similar prompts")
     print(f"  - Cache hits: {similarity_results['hits']}/{len(similar_prompts)}")
     print(f"  - Hit rate: {results['semantic_similarity']['hit_rate']:.1f}%")
     print(f"  - p50 latency: {results['semantic_similarity']['latencies']['p50']:.2f}ms")
@@ -365,7 +365,7 @@ async def run_benchmark_suite(cache_type, cache, embedder, prompts, is_async=Fal
         'lookup': calculate_percentiles(miss_results['lookup_latencies']),
         'write': calculate_percentiles(miss_results['write_latencies'])
     }
-    print(f"✓ Tested {len(diverse_prompts)} diverse prompts")
+    print(f"[+] Tested {len(diverse_prompts)} diverse prompts")
     print(f"  - Lookup p50: {results['cache_misses']['lookup']['p50']:.2f}ms")
     print(f"  - Write p50: {results['cache_misses']['write']['p50']:.2f}ms")
     
@@ -381,7 +381,7 @@ async def run_benchmark_suite(cache_type, cache, embedder, prompts, is_async=Fal
                 cache, base_embeddings, concurrency_level=level,
                 total_operations=concurrent_operations, is_async=is_async
             )
-            print(f"✓ Completed {read_results['total_operations']} concurrent read operations")
+            print(f"[+] Completed {read_results['total_operations']} concurrent read operations")
             print(f"  - QPS: {read_results['qps']:.2f}")
             print(f"  - p50: {calculate_percentiles(read_results['latencies'])['p50']:.2f}ms")
             print(f"  - p95: {calculate_percentiles(read_results['latencies'])['p95']:.2f}ms")
@@ -393,7 +393,7 @@ async def run_benchmark_suite(cache_type, cache, embedder, prompts, is_async=Fal
                 cache, diverse_prompts, embedder, concurrency_level=level,
                 total_operations=concurrent_operations, is_async=is_async
             )
-            print(f"✓ Completed {write_results['total_operations']} concurrent write operations")
+            print(f"[+] Completed {write_results['total_operations']} concurrent write operations")
             print(f"  - QPS: {write_results['qps']:.2f}")
             print(f"  - p50: {calculate_percentiles(write_results['latencies'])['p50']:.2f}ms")
             print(f"  - p95: {calculate_percentiles(write_results['latencies'])['p95']:.2f}ms")
@@ -408,7 +408,7 @@ async def run_benchmark_suite(cache_type, cache, embedder, prompts, is_async=Fal
             )
             read_stats = calculate_percentiles(mixed_results['read_latencies'])
             write_stats = calculate_percentiles(mixed_results['write_latencies'])
-            print(f"✓ Completed {mixed_results['total_operations']} mixed operations")
+            print(f"[+] Completed {mixed_results['total_operations']} mixed operations")
             print(f"  - QPS: {mixed_results['qps']:.2f}")
             print(f"  - Read p50: {read_stats['p50']:.2f}ms, Write p50: {write_stats['p50']:.2f}ms")
             
@@ -540,7 +540,7 @@ def save_results(results_list, output_format='json'):
         filename = f"benchmark_results_{timestamp}.json"
         with open(filename, 'w') as f:
             json.dump(results_list, f, indent=2)
-        print(f"\n✓ Results saved to {filename}")
+        print(f"\n[+] Results saved to {filename}")
     
     elif output_format == 'csv':
         filename = f"benchmark_results_{timestamp}.csv"
@@ -588,7 +588,7 @@ def save_results(results_list, output_format='json'):
                     f"{write['p99']:.2f}", f"{write['max']:.2f}", f"{write['mean']:.2f}"
                 ])
         
-        print(f"\n✓ Results saved to {filename}")
+        print(f"\n[+] Results saved to {filename}")
 
 
 async def main():
@@ -666,18 +666,18 @@ async def main():
     # Load prompts
     print(f"Loading prompts from {args.prompts_file}...")
     prompts = load_prompts(args.prompts_file)
-    print(f"✓ Loaded {len(prompts)} prompts")
+    print(f"[+] Loaded {len(prompts)} prompts")
     
     # Load SentenceTransformer model
     print(f"\nLoading SentenceTransformer model: {args.sentence_transformer_model}...")
     embedder = SentenceTransformer(args.sentence_transformer_model)
-    print("✓ Model loaded")
+    print("[+] Model loaded")
     
     # Parse concurrency levels
     concurrency_levels = None
     if args.concurrency_test:
         concurrency_levels = [int(x.strip()) for x in args.concurrency_levels.split(',')]
-        print(f"\n✓ Concurrency testing enabled with levels: {concurrency_levels}")
+        print(f"\n[+] Concurrency testing enabled with levels: {concurrency_levels}")
         print(f"  Operations per test: {args.concurrent_operations}")
     
     results_list = []
@@ -739,9 +739,9 @@ async def main():
                 try:
                     test_embedding = embedder.encode("test query")
                     cache.get_cached_response(test_embedding)
-                    print("✓ Vector index is ready")
+                    print("[+] Vector index is ready")
                 except Exception as e:
-                    print(f"✗ Warning: Vector index test failed: {e}")
+                    print(f"[-] Warning: Vector index test failed: {e}")
                     print("  Continuing anyway, but results may be affected...")
                 
                 results = await run_benchmark_suite(
@@ -755,7 +755,7 @@ async def main():
                 cache.close()
         
         except Exception as e:
-            print(f"\n✗ Error benchmarking {backend}: {e}")
+            print(f"\n[-] Error benchmarking {backend}: {e}")
             import traceback
             traceback.print_exc()
             continue
@@ -768,7 +768,7 @@ async def main():
         if args.output != "none":
             save_results(results_list, args.output)
     else:
-        print("\n✗ No benchmarks completed successfully")
+        print("\n[-] No benchmarks completed successfully")
 
 
 if __name__ == "__main__":
