@@ -54,6 +54,8 @@ Or manually:
 pip install autogen-ext autogen-core sentence-transformers scylla-driver psycopg[binary] pgvector numpy anthropic
 ```
 
+**Note on ScyllaDB Driver**: This project uses `scylla-driver` (not `cassandra-driver`). The scylla-driver is a fork of cassandra-driver optimized for ScyllaDB, but it still uses the `cassandra` namespace internally. When importing, use `from cassandra.cluster import ...` even though the package is `scylla-driver`.
+
 3. Set up your environment variables (optional):
 ```bash
 export ANTHROPIC_API_KEY="your-api-key"

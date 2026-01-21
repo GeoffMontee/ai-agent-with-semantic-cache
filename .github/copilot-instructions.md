@@ -44,7 +44,7 @@ All configuration follows this precedence order:
 ### Async Patterns
 - Main async logic is in `async_main()`
 - Use `await` for Anthropic client calls and PostgreSQL pgvector operations
-- ScyllaDB operations are synchronous (cassandra-driver is not async)
+- ScyllaDB operations are synchronous (scylla-driver does not support async, like cassandra-driver)
 - Keep the synchronous `main()` wrapper minimal
 
 ### Database Operations
@@ -59,7 +59,15 @@ All configuration follows this precedence order:
 
 ### `ScyllaDBCache` Class
 - **Purpose**: Encapsulates all ScyllaDB operations
-- **Imports**: Uses top-level imports from cassandra-driver (Cluster, ExecutionProfile, EXEC_PROFILE_DEFAULT, PlainTextAuthProvider, WhiteListRoundRobinPolicy, ConstantReconnectionPolicy)
+- **Driver Choice**: 
+  - **CRITICAL**: Uses `scylla-driver` package, NOT `cassandra-driver`
+  - `scylla-driver` is a fork of `cassandra-driver` optimized for ScyllaDB
+  - Despite using `scylla-driver`, imports use `cassandra` namespace (e.g., `from cassandra.cluster import Cluster`)
+  - There are implementation differences between the two drivers
+  - **Always verify API compatibility**: Some cassandra-driver APIs may not exist or behave differently in scylla-driver
+  - Example: `HostConnectionPool` class from `cassandra.cluster` is not available in scylla-driver
+- **Imports**: Uses top-level imports from scylla-driver (Cluster, ExecutionProfile, EXEC_PROFILE_DEFAULT, PlainTextAuthProvider, WhiteListRoundRobinPolicy, ConstantReconnectionPolicy)
+  - **No longer imports**: `HostConnectionPool` (cassandra-driver specific, not in scylla-driver)
 - **Initialization**: Sets up keyspace, table, and vector index
   - Configures connection pool with `pool_size` and `max_requests_per_connection` parameters
   - Uses ExecutionProfile with WhiteListRoundRobinPolicy for load balancing
@@ -79,7 +87,9 @@ All configuration follows this precedence order:
 - **Connection Pool Configuration**:
   - Default pool_size: 10 connections per host (configurable)
   - Default max_requests_per_connection: 1024 (configurable)
-  - Properly configures core_connections and max_connections per host
+  - Uses `session.get_pool_state(host)` API to access pool configuration (compatible with scylla-driver)
+  - Configures `pool.core_connections` and `pool.max_connections` per host dynamically
+  - Caps at reasonable limits: core_connections ≤ 32, max_connections ≤ 64
   - Benchmark uses dynamic pool sizing (2x max concurrency level) and max_requests_per_connection=2048
 - **Prepared Statement Caching**:
   - INSERT statement prepared once at initialization and cached
@@ -245,6 +255,10 @@ value = (
 - `autogen-ext`: Anthropic client integration
 - `autogen-core`: Message types and interfaces
 - `scylla-driver`: ScyllaDB connectivity
+  - **Important**: This is NOT `cassandra-driver`, but a fork optimized for ScyllaDB
+  - Uses `cassandra` namespace internally (import with `from cassandra.cluster import ...`)
+  - Some cassandra-driver APIs may not be available or may behave differently
+  - Always verify API compatibility when using advanced features
 - `psycopg[binary]`: PostgreSQL async driver
 - `psycopg-pool`: Connection pooling for PostgreSQL (added for concurrency)
 - `pgvector`: PostgreSQL vector extension support

@@ -10,10 +10,9 @@ import asyncio
 import hashlib
 import time
 from datetime import datetime
-from cassandra.cluster import Cluster, ExecutionProfile, EXEC_PROFILE_DEFAULT, HostConnectionPool
+from cassandra.cluster import Cluster, ExecutionProfile, EXEC_PROFILE_DEFAULT
 from cassandra.auth import PlainTextAuthProvider
 from cassandra.policies import WhiteListRoundRobinPolicy, ConstantReconnectionPolicy
-from cassandra.pool import HostConnectionPool as HCP
 from autogen_ext.models.anthropic import AnthropicChatCompletionClient
 from autogen_core.models import UserMessage
 from sentence_transformers import SentenceTransformer
