@@ -79,19 +79,31 @@ All configuration follows this precedence order:
 - **Connection Pool Configuration**:
   - Default pool_size: 10 connections per host (configurable)
   - Default max_requests_per_connection: 1024 (configurable)
+  - Properly configures core_connections and max_connections per host
   - Benchmark uses dynamic pool sizing (2x max concurrency level) and max_requests_per_connection=2048
+- **Prepared Statement Caching**:
+  - INSERT statement prepared once at initialization and cached
+  - Eliminates re-parsing overhead under high concurrency
+  - SELECT queries cannot be prepared (vector ANN limitation)
 
 ### `PgVectorCache` Class
 - **Purpose**: Encapsulates all PostgreSQL pgvector operations
-- **Initialization**: Sets up schema, table, and HNSW index
+- **Initialization**: Sets up schema, table, and HNSW index with connection pooling
+  - Uses AsyncConnectionPool for efficient concurrent operations
+  - Configurable pool size (default: 10, min: 2)
+  - Prepared statement caching for both SELECT and INSERT queries
 - **Key Methods**:
-  - `connect()`: Async connection establishment and database setup
-  - `get_cached_response()`: HNSW vector search for similar prompts
+  - `connect()`: Async connection pool establishment and database setup
+  - `get_cached_response()`: HNSW vector search using prepared statements
+  - `cache_response()`: Store new prompt-response pairs with prepared statements
+  - `close()`: Clean async shutdown of connection pool
 - **Vector Type Casting**: All vector parameters must use `::vector` casting in SQL queries
   - Required for distance operators: `<->` (L2), `<=>` (cosine), `<#>` (inner product), `<+>` (L1)
   - Failure to cast causes "operator does not exist: vector <=> double precision[]" errors
-  - `cache_response()`: Store new prompt-response pairs
-  - `close()`: Clean async shutdown of database connection
+- **Connection Pool Configuration**:
+  - Default pool_size: 10 connections (configurable)
+  - Min size: 2, Max size: pool_size parameter
+  - Prepared statements cached at instance level
 - **Important**: All methods except `__init__` are async and must be awaited
 
 ### `async_main()` Function
@@ -233,6 +245,9 @@ value = (
 - `autogen-ext`: Anthropic client integration
 - `autogen-core`: Message types and interfaces
 - `scylla-driver`: ScyllaDB connectivity
+- `psycopg[binary]`: PostgreSQL async driver
+- `psycopg-pool`: Connection pooling for PostgreSQL (added for concurrency)
+- `pgvector`: PostgreSQL vector extension support
 - `sentence-transformers`: Embedding generation
 - `numpy`: Array operations
 

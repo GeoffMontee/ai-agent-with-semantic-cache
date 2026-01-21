@@ -13,6 +13,7 @@ scylla-driver>=3.26.0
 
 # PostgreSQL with pgvector support
 psycopg[binary]>=3.1.0
+psycopg-pool>=3.1.0  # Connection pooling for PostgreSQL
 pgvector>=0.3.0
 
 # Sentence transformers for embeddings

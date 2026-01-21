@@ -502,11 +502,14 @@ Each test reports:
 
 ### Customizing Test Prompts
 
-Edit [benchmark_prompts.txt](benchmark_prompts.txt) to customize the prompts used in benchmarks. The file contains 200+ prompts organized into categories:
+Edit [benchmark_prompts.txt](benchmark_prompts.txt) to customize the prompts used in benchmarks. The file contains 1,189 prompts organized into categories:
 - Base prompts (for cache population)
 - Semantically similar variants (for similarity testing)
-- Diverse prompts (for cache miss testing)
-- Technical and edge case prompts (for realistic workloads)
+- Programming concepts, data structures, algorithms (200 prompts)
+- Database, web development, cloud/DevOps (300 prompts)
+- Security, ML/AI, business topics (250 prompts)
+- Science, general knowledge, and miscellaneous (400+ prompts)
+- Short queries, long-form questions, and edge cases (50+ prompts)
 
 ### Sample Results
 
@@ -533,9 +536,15 @@ Performance comparison (local PostgreSQL vs ScyllaDB Cloud):
 - Network conditions vary for cloud backends
 
 ### Index Initialization Details
-**ScyllaDB**: The tool waits 5 seconds for index initialization. This is sufficient for most scenarios, but cloud deployments or large existing caches may require additional time. The ScyllaDB cache also includes configurable connection pooling (default: 10 connections per host, 1024 max requests per connection) for optimal performance under concurrent workloads.
+**ScyllaDB**: The tool waits 5 seconds for index initialization. This is sufficient for most scenarios, but cloud deployments or large existing caches may require additional time. The ScyllaDB cache includes:
+- Configurable connection pooling (default: 10 connections per host, 1024 max requests per connection)
+- Prepared statement caching for INSERT operations
+- Proper core and max connection pool configuration for optimal concurrent performance
 
-**PostgreSQL**: HNSW indexes are created automatically and are immediately usable. For large datasets, you may want to create indexes after loading initial data for better performance.
+**PostgreSQL**: HNSW indexes are created automatically and are immediately usable. For large datasets, you may want to create indexes after loading initial data for better performance. The PostgreSQL cache includes:
+- AsyncConnectionPool with configurable size (default: 10 connections)
+- Prepared statement caching for both SELECT and INSERT operations
+- Connection pooling for efficient concurrent operations
 
 ## Contributing
 

@@ -7,14 +7,19 @@ and ScyllaDB Cloud or PostgreSQL pgvector for vector-based caching.
 import argparse
 import os
 import asyncio
-from cassandra.cluster import Cluster, ExecutionProfile, EXEC_PROFILE_DEFAULT
+import hashlib
+import time
+from datetime import datetime
+from cassandra.cluster import Cluster, ExecutionProfile, EXEC_PROFILE_DEFAULT, HostConnectionPool
 from cassandra.auth import PlainTextAuthProvider
 from cassandra.policies import WhiteListRoundRobinPolicy, ConstantReconnectionPolicy
+from cassandra.pool import HostConnectionPool as HCP
 from autogen_ext.models.anthropic import AnthropicChatCompletionClient
 from autogen_core.models import UserMessage
 from sentence_transformers import SentenceTransformer
 import numpy as np
-import time
+import psycopg_pool
+from pgvector.psycopg import register_vector_async
 
 
 class ScyllaDBCache:
@@ -37,39 +42,54 @@ class ScyllaDBCache:
         # Create execution profile with increased connection pool settings
         profile = ExecutionProfile(
             load_balancing_policy=WhiteListRoundRobinPolicy(contact_points),
-            # Increase connection pool for better concurrency
             request_timeout=30.0,
         )
         
-        # Configure cluster with increased pool sizes
+        # Configure cluster with proper connection pooling for concurrency
+        # Set core and max connections per host
+        
         self.cluster = Cluster(
             contact_points,
             auth_provider=auth_provider,
             execution_profiles={EXEC_PROFILE_DEFAULT: profile},
             protocol_version=4,
-            # Connection pool configuration
-            # These control how many concurrent operations can be in flight
-            connection_class=None,  # Use default connection class
+            # Connection pool configuration - core and max connections per host
+            # This controls how many connections are established to each host
+            # More connections = more concurrent operations
+            connect_timeout=10,
             # Reconnection policy
             reconnection_policy=ConstantReconnectionPolicy(delay=1.0, max_attempts=10),
         )
         
-        # Override connection pool settings on the cluster
-        # This increases the number of connections per host and requests per connection
+        # Set connection pool size per host (affects number of connections created)
+        # Default is 2-8, we increase for better concurrency
         self.cluster.connection_class.max_in_flight = max_requests_per_connection
         
         self.session = self.cluster.connect()
         
-        # Set pool size per host (core and max connections)
-        # This allows more concurrent operations
+        # Configure session-level settings
+        self.session.default_fetch_size = 5000
+        
+        # Set connection pool size dynamically after cluster is created
+        # This affects how many connections per host are maintained
+        # Accessing internal state to configure pool sizes
         for host in self.cluster.metadata.all_hosts():
-            self.session.default_fetch_size = 5000
+            # Get the pool for this host and configure its size
+            pool = self.session.get_pool_state(host)
+            if pool:
+                # Set target sizes for connection pools
+                pool.core_connections = min(pool_size, 32)  # Cap at reasonable limit
+                pool.max_connections = min(pool_size * 2, 64)  # Allow burst capacity
         
         self.keyspace = keyspace
         self.table = table
         self.embedding_dim = 384  # Dimension for all-MiniLM-L6-v2
         self.pool_size = pool_size
         self.max_requests_per_connection = max_requests_per_connection
+        
+        # Prepared statement cache (initialized after database setup)
+        self._select_stmt = None
+        self._insert_stmt = None
         
         self._setup_database()
 
@@ -110,6 +130,21 @@ class ScyllaDBCache:
         # Wait for the index to be ready (especially important for cloud deployments)
         print("Waiting for vector index to initialize...")
         time.sleep(5)
+        
+        # Prepare statements for better concurrency performance
+        # Cache prepared statements at instance level to avoid re-preparing
+        self._prepare_statements()
+    
+    def _prepare_statements(self):
+        """Prepare frequently-used statements for better performance under concurrency."""
+        # Note: Vector ANN queries cannot be prepared in ScyllaDB as they require
+        # the vector to be embedded in the query. We prepare the INSERT statement only.
+        
+        # Prepare INSERT statement (used in cache_response)
+        self._insert_stmt = self.session.prepare(f"""
+            INSERT INTO {self.keyspace}.{self.table} (prompt_hash, prompt, embedding, response, created_at)
+            VALUES (?, ?, ?, ?, ?)
+        """)
 
     def get_cached_response(self, embedding, threshold=0.95):
         """
@@ -153,24 +188,16 @@ class ScyllaDBCache:
 
     def cache_response(self, prompt, embedding, response):
         """Store prompt, embedding, and response in cache."""
-        import hashlib
-        from datetime import datetime
-        
         # Generate hash for primary key
         prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()
         
         # Convert numpy array to list for CQL
         embedding_list = embedding.tolist() if isinstance(embedding, np.ndarray) else embedding
         
-        # Use prepared statement to avoid formatting issues
-        insert_query = self.session.prepare(f"""
-            INSERT INTO {self.keyspace}.{self.table} (prompt_hash, prompt, embedding, response, created_at)
-            VALUES (?, ?, ?, ?, ?)
-        """)
-        
+        # Use cached prepared statement for better performance
         try:
             self.session.execute(
-                insert_query,
+                self._insert_stmt,
                 (prompt_hash, prompt, embedding_list, response, datetime.now())
             )
             print("✓ Response cached successfully")
@@ -185,7 +212,7 @@ class ScyllaDBCache:
 class PgVectorCache:
     def __init__(self, host="localhost", port=5432, user="postgres", password="", 
                  database="postgres", schema="llm_cache", table="llm_responses",
-                 similarity_function="cosine"):
+                 similarity_function="cosine", pool_size=10):
         """Initialize PostgreSQL connection with pgvector support."""
         self.host = host
         self.port = port
@@ -196,7 +223,8 @@ class PgVectorCache:
         self.table = table
         self.similarity_function = similarity_function
         self.embedding_dim = 384  # Dimension for all-MiniLM-L6-v2
-        self.conn = None
+        self.pool_size = pool_size
+        self.conn_pool = None
         
         # Map similarity functions to pgvector operators and index ops
         self.similarity_ops = {
@@ -209,55 +237,92 @@ class PgVectorCache:
         if similarity_function not in self.similarity_ops:
             raise ValueError(f"Unknown similarity function: {similarity_function}. "
                            f"Supported: {list(self.similarity_ops.keys())}")
+        
+        # Prepared statement cache (initialized after connection)
+        self._select_stmt = None
+        self._insert_stmt = None
     
     async def connect(self):
-        """Establish async connection to PostgreSQL."""
-        import psycopg
-        from pgvector.psycopg import register_vector_async
-        
+        """Establish async connection pool to PostgreSQL."""
         # Build connection string
         conn_string = f"host={self.host} port={self.port} dbname={self.database} "
         conn_string += f"user={self.user}"
         if self.password:
             conn_string += f" password={self.password}"
         
-        # Connect to PostgreSQL
-        self.conn = await psycopg.AsyncConnection.connect(conn_string)
+        # Create connection pool for better concurrency
+        # AsyncConnectionPool handles concurrent operations efficiently
+        self.conn_pool = psycopg_pool.AsyncConnectionPool(
+            conn_string,
+            min_size=2,  # Minimum connections to keep open
+            max_size=self.pool_size,  # Maximum concurrent connections
+            timeout=30.0,
+            max_waiting=0,  # Don't queue if pool exhausted (fail fast)
+            open=False  # Don't open connections yet
+        )
         
-        # Register pgvector extension
-        await register_vector_async(self.conn)
+        # Open the connection pool
+        await self.conn_pool.open()
+        
+        # Register pgvector extension on one connection
+        async with self.conn_pool.connection() as conn:
+            await register_vector_async(conn)
         
         await self._setup_database()
+        
+        # Prepare statements after database is set up
+        await self._prepare_statements()
+    
+    async def _prepare_statements(self):
+        """Prepare frequently-used statements for better performance under concurrency."""
+        # Get operator for similarity function
+        operator = self.similarity_ops[self.similarity_function]["operator"]
+        
+        # Prepare SELECT query for cache lookups
+        self._select_stmt = f"""
+            SELECT prompt, response
+            FROM {self.schema}.{self.table}
+            ORDER BY embedding {operator} $1::vector
+            LIMIT 1
+        """
+        
+        # Prepare INSERT query for cache writes
+        self._insert_stmt = f"""
+            INSERT INTO {self.schema}.{self.table} (prompt_hash, prompt, embedding, response, created_at)
+            VALUES ($1, $2, $3::vector, $4, CURRENT_TIMESTAMP)
+            ON CONFLICT (prompt_hash) DO NOTHING
+        """
     
     async def _setup_database(self):
         """Create schema, table, and HNSW index with vector column."""
-        async with self.conn.cursor() as cur:
-            # Create schema
-            await cur.execute(f"CREATE SCHEMA IF NOT EXISTS {self.schema}")
-            
-            # Create pgvector extension if not exists
-            await cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
-            
-            # Create table with vector column for embeddings
-            await cur.execute(f"""
-                CREATE TABLE IF NOT EXISTS {self.schema}.{self.table} (
-                    prompt_hash TEXT PRIMARY KEY,
-                    prompt TEXT NOT NULL,
-                    embedding vector({self.embedding_dim}),
-                    response TEXT NOT NULL,
-                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            
-            # Create HNSW index for vector similarity search
-            index_ops = self.similarity_ops[self.similarity_function]["index_ops"]
-            await cur.execute(f"""
-                CREATE INDEX IF NOT EXISTS {self.table}_embedding_idx
-                ON {self.schema}.{self.table}
-                USING hnsw (embedding {index_ops})
-            """)
-            
-            await self.conn.commit()
+        async with self.conn_pool.connection() as conn:
+            async with conn.cursor() as cur:
+                # Create schema
+                await cur.execute(f"CREATE SCHEMA IF NOT EXISTS {self.schema}")
+                
+                # Create pgvector extension if not exists
+                await cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+                
+                # Create table with vector column for embeddings
+                await cur.execute(f"""
+                    CREATE TABLE IF NOT EXISTS {self.schema}.{self.table} (
+                        prompt_hash TEXT PRIMARY KEY,
+                        prompt TEXT NOT NULL,
+                        embedding vector({self.embedding_dim}),
+                        response TEXT NOT NULL,
+                        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                # Create HNSW index for vector similarity search
+                index_ops = self.similarity_ops[self.similarity_function]["index_ops"]
+                await cur.execute(f"""
+                    CREATE INDEX IF NOT EXISTS {self.table}_embedding_idx
+                    ON {self.schema}.{self.table}
+                    USING hnsw (embedding {index_ops})
+                """)
+                
+                await conn.commit()
     
     async def get_cached_response(self, embedding, threshold=0.95):
         """
@@ -270,25 +335,20 @@ class PgVectorCache:
         Returns:
             Cached response or None
         """
-        # Get operator for similarity function
-        operator = self.similarity_ops[self.similarity_function]["operator"]
-        
-        # Query using HNSW vector search (ORDER BY ... LIMIT 1 uses the index)
-        query = f"""
-            SELECT prompt, response
-            FROM {self.schema}.{self.table}
-            ORDER BY embedding {operator} %s::vector
-            LIMIT 1
-        """
-        
         try:
-            async with self.conn.cursor() as cur:
-                await cur.execute(query, (embedding.tolist() if isinstance(embedding, np.ndarray) else embedding,))
-                row = await cur.fetchone()
-                
-                if row:
-                    print(f"✓ Cache hit!")
-                    return row[1]  # Return response
+            # Use connection from pool
+            async with self.conn_pool.connection() as conn:
+                async with conn.cursor() as cur:
+                    # Use prepared statement with parameterized query
+                    await cur.execute(
+                        self._select_stmt,
+                        (embedding.tolist() if isinstance(embedding, np.ndarray) else embedding,)
+                    )
+                    row = await cur.fetchone()
+                    
+                    if row:
+                        print(f"✓ Cache hit!")
+                        return row[1]  # Return response
         except Exception as e:
             print(f"Cache lookup error: {e}")
         
@@ -296,29 +356,27 @@ class PgVectorCache:
     
     async def cache_response(self, prompt, embedding, response):
         """Store prompt, embedding, and response in cache."""
-        import hashlib
-        
         # Generate hash for primary key
         prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()
         
-        query = f"""
-            INSERT INTO {self.schema}.{self.table} (prompt_hash, prompt, embedding, response, created_at)
-            VALUES (%s, %s, %s::vector, %s, CURRENT_TIMESTAMP)
-            ON CONFLICT (prompt_hash) DO NOTHING
-        """
-        
         try:
-            async with self.conn.cursor() as cur:
-                await cur.execute(query, (prompt_hash, prompt, embedding.tolist() if isinstance(embedding, np.ndarray) else embedding, response))
-                await self.conn.commit()
+            # Use connection from pool
+            async with self.conn_pool.connection() as conn:
+                async with conn.cursor() as cur:
+                    # Use prepared statement with parameterized query
+                    await cur.execute(
+                        self._insert_stmt,
+                        (prompt_hash, prompt, embedding.tolist() if isinstance(embedding, np.ndarray) else embedding, response)
+                    )
+                    await conn.commit()
             print("✓ Response cached successfully")
         except Exception as e:
             print(f"Cache storage error: {e}")
     
     async def close(self):
-        """Close the database connection."""
-        if self.conn:
-            await self.conn.close()
+        """Close the database connection pool."""
+        if self.conn_pool:
+            await self.conn_pool.close()
 
 
 def main():
