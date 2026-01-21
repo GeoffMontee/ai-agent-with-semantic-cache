@@ -59,7 +59,10 @@ All configuration follows this precedence order:
 
 ### `ScyllaDBCache` Class
 - **Purpose**: Encapsulates all ScyllaDB operations
+- **Imports**: Uses top-level imports from cassandra-driver (Cluster, ExecutionProfile, EXEC_PROFILE_DEFAULT, PlainTextAuthProvider, WhiteListRoundRobinPolicy, ConstantReconnectionPolicy)
 - **Initialization**: Sets up keyspace, table, and vector index
+  - Configures connection pool with `pool_size` and `max_requests_per_connection` parameters
+  - Uses ExecutionProfile with WhiteListRoundRobinPolicy for load balancing
   - **CRITICAL**: Waits 5 seconds after creating vector index for it to become queryable
   - Cloud deployments may need longer initialization time (10-15 seconds)
   - If vector index queries fail with "ANN ordering by vector requires the column to be indexed", the index isn't ready yet
@@ -73,6 +76,10 @@ All configuration follows this precedence order:
   - Wait time increased from 2 to 5 seconds (as of 2026-01)
   - Addresses cloud deployment latency and new keyspace creation
   - Benchmark tool adds additional verification step
+- **Connection Pool Configuration**:
+  - Default pool_size: 10 connections per host (configurable)
+  - Default max_requests_per_connection: 1024 (configurable)
+  - Benchmark uses dynamic pool sizing (2x max concurrency level) and max_requests_per_connection=2048
 
 ### `PgVectorCache` Class
 - **Purpose**: Encapsulates all PostgreSQL pgvector operations
@@ -193,7 +200,7 @@ All configuration follows this precedence order:
 - High-volume production use
 
 ### Optimization Opportunities
-- Consider connection pooling for ScyllaDB
+- ScyllaDB connection pooling is implemented and configurable (pool_size, max_requests_per_connection)
 - Implement batch embedding generation
 - Add cache TTL (time-to-live) for stale data
 - Add cache statistics/monitoring

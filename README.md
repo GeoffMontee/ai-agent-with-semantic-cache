@@ -533,7 +533,7 @@ Performance comparison (local PostgreSQL vs ScyllaDB Cloud):
 - Network conditions vary for cloud backends
 
 ### Index Initialization Details
-**ScyllaDB**: The tool waits 5 seconds for index initialization. This is sufficient for most scenarios, but cloud deployments or large existing caches may require additional time.
+**ScyllaDB**: The tool waits 5 seconds for index initialization. This is sufficient for most scenarios, but cloud deployments or large existing caches may require additional time. The ScyllaDB cache also includes configurable connection pooling (default: 10 connections per host, 1024 max requests per connection) for optimal performance under concurrent workloads.
 
 **PostgreSQL**: HNSW indexes are created automatically and are immediately usable. For large datasets, you may want to create indexes after loading initial data for better performance.
 

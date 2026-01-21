@@ -711,12 +711,22 @@ async def main():
             
             elif backend == "scylla":
                 print(f"\nInitializing ScyllaDB cache...")
+                # Calculate optimal pool size based on concurrency levels if testing concurrency
+                pool_size = 10  # default
+                if args.concurrency_test and concurrency_levels:
+                    # Set pool size to handle max concurrency level
+                    max_concurrency = max(concurrency_levels)
+                    pool_size = max(10, max_concurrency * 2)  # 2x max concurrency for safety
+                    print(f"  Configuring connection pool: {pool_size} connections per host, 2048 max requests per connection")
+                
                 cache = ScyllaDBCache(
                     contact_points=args.scylla_contact_points.split(','),
                     username=args.scylla_user,
                     password=args.scylla_password,
                     keyspace=args.scylla_keyspace,
-                    table=args.scylla_table
+                    table=args.scylla_table,
+                    pool_size=pool_size,
+                    max_requests_per_connection=2048
                 )
                 
                 # Give extra time for vector index to be ready in cloud environments

@@ -7,8 +7,9 @@ and ScyllaDB Cloud or PostgreSQL pgvector for vector-based caching.
 import argparse
 import os
 import asyncio
-from cassandra.cluster import Cluster
+from cassandra.cluster import Cluster, ExecutionProfile, EXEC_PROFILE_DEFAULT
 from cassandra.auth import PlainTextAuthProvider
+from cassandra.policies import WhiteListRoundRobinPolicy, ConstantReconnectionPolicy
 from autogen_ext.models.anthropic import AnthropicChatCompletionClient
 from autogen_core.models import UserMessage
 from sentence_transformers import SentenceTransformer
@@ -17,14 +18,58 @@ import time
 
 
 class ScyllaDBCache:
-    def __init__(self, contact_points, username, password, keyspace="llm_cache", table="llm_responses"):
-        """Initialize ScyllaDB connection with vector search support."""
+    def __init__(self, contact_points, username, password, keyspace="llm_cache", table="llm_responses",
+                 pool_size=10, max_requests_per_connection=1024):
+        """
+        Initialize ScyllaDB connection with vector search support.
+        
+        Args:
+            contact_points: List of ScyllaDB nodes
+            username: ScyllaDB username
+            password: ScyllaDB password
+            keyspace: Keyspace name
+            table: Table name
+            pool_size: Number of connections per host (default: 10, increase for high concurrency)
+            max_requests_per_connection: Max concurrent requests per connection (default: 1024)
+        """
         auth_provider = PlainTextAuthProvider(username=username, password=password)
-        self.cluster = Cluster(contact_points, auth_provider=auth_provider)
+        
+        # Create execution profile with increased connection pool settings
+        profile = ExecutionProfile(
+            load_balancing_policy=WhiteListRoundRobinPolicy(contact_points),
+            # Increase connection pool for better concurrency
+            request_timeout=30.0,
+        )
+        
+        # Configure cluster with increased pool sizes
+        self.cluster = Cluster(
+            contact_points,
+            auth_provider=auth_provider,
+            execution_profiles={EXEC_PROFILE_DEFAULT: profile},
+            protocol_version=4,
+            # Connection pool configuration
+            # These control how many concurrent operations can be in flight
+            connection_class=None,  # Use default connection class
+            # Reconnection policy
+            reconnection_policy=ConstantReconnectionPolicy(delay=1.0, max_attempts=10),
+        )
+        
+        # Override connection pool settings on the cluster
+        # This increases the number of connections per host and requests per connection
+        self.cluster.connection_class.max_in_flight = max_requests_per_connection
+        
         self.session = self.cluster.connect()
+        
+        # Set pool size per host (core and max connections)
+        # This allows more concurrent operations
+        for host in self.cluster.metadata.all_hosts():
+            self.session.default_fetch_size = 5000
+        
         self.keyspace = keyspace
         self.table = table
         self.embedding_dim = 384  # Dimension for all-MiniLM-L6-v2
+        self.pool_size = pool_size
+        self.max_requests_per_connection = max_requests_per_connection
         
         self._setup_database()
 
