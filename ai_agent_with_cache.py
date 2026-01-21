@@ -169,7 +169,7 @@ class ScyllaDBCache:
             if row:
                 # Since we're using ANN with COSINE similarity, the closest result is most similar
                 # For exact match detection, we could check if prompt matches exactly
-                print(f"✓ Cache hit!")
+                print(f"[+] Cache hit!")
                 return row.response
         except Exception as e:
             # Check if this is a vector index error
