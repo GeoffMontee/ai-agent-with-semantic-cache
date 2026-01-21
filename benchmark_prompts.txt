@@ -45,7 +45,7 @@ What is version control?
 How does garbage collection work?
 What is a hash table?
 
-# Programming concepts
+# Programming concepts (100 prompts)
 What is object-oriented programming?
 Explain functional programming
 What are design patterns?
@@ -56,8 +56,99 @@ What is SOLID principles?
 How do promises work in JavaScript?
 What is test-driven development?
 Explain the MVC pattern
+What is reactive programming?
+How does event-driven architecture work?
+Explain aspect-oriented programming?
+What is metaprogramming?
+How does reflection work?
+What are higher-order functions?
+Explain currying in functional programming
+What is immutability?
+How does pattern matching work?
+What are monads?
+Explain pure functions
+What is referential transparency?
+How does lazy evaluation work?
+What are closures?
+Explain scope and hoisting
+What is the prototype chain?
+How does inheritance work?
+Explain composition over inheritance
+What are mixins?
+How does multiple inheritance work?
+What are interfaces vs abstract classes?
+Explain static vs dynamic typing
+What is type inference?
+How does duck typing work?
+What are generics?
+Explain covariance and contravariance
+What is method overloading?
+How does operator overloading work?
+What are extension methods?
+Explain virtual methods
+What is method chaining?
+How does constructor injection work?
+What are factory patterns?
+Explain singleton pattern
+What is observer pattern?
+How does strategy pattern work?
+What is decorator pattern?
+Explain adapter pattern?
+What is facade pattern?
+How does proxy pattern work?
+What is command pattern?
+Explain state pattern
+What is visitor pattern?
+How does template method pattern work?
+What is builder pattern?
+Explain prototype pattern
+What is flyweight pattern?
+How does bridge pattern work?
+What is chain of responsibility?
+Explain mediator pattern
+What is memento pattern?
+How does iterator pattern work?
+What are lambda expressions?
+Explain anonymous functions
+What is function composition?
+How does partial application work?
+What are default parameters?
+Explain variadic functions
+What is destructuring?
+How does spread operator work?
+What are rest parameters?
+Explain arrow functions
+What is lexical scoping?
+How does dynamic scoping work?
+What are first-class functions?
+Explain callback functions
+What is callback hell?
+How do you handle async operations?
+What is promise chaining?
+Explain async/await
+What are generators?
+How does yield work?
+What is coroutine?
+Explain continuations
+What is tail call optimization?
+How does memoization work?
+What are thunks?
+Explain trampolining
+What is continuation passing style?
+How does event loop work?
+What is microtask queue?
+Explain macro tasks
+What is call stack?
+How does stack overflow occur?
+What is heap memory?
+Explain memory leaks
+What is garbage collection algorithm?
+How does reference counting work?
+What is mark and sweep?
+Explain generational garbage collection
+What is compaction?
 
-# Data structures and algorithms
+# Data structures and algorithms (100 prompts)
 What is a linked list?
 Explain depth-first search
 How does merge sort work?
@@ -68,8 +159,98 @@ How does a queue differ from a stack?
 What is a red-black tree?
 Explain Dijkstra's algorithm
 What is a trie data structure?
+How does breadth-first search work?
+What is a binary heap?
+Explain quicksort algorithm
+What is insertion sort?
+How does selection sort work?
+What is bubble sort?
+Explain counting sort
+What is radix sort?
+How does bucket sort work?
+What is heap sort?
+Explain shell sort
+What is comb sort?
+How does cocktail sort work?
+What is gnome sort?
+Explain cycle sort
+What is pancake sorting?
+How does bogosort work?
+What is a priority queue?
+Explain deque data structure
+What is a circular buffer?
+How does a bloom filter work?
+What is a skip list?
+Explain B-tree
+What is B+ tree?
+How does LSM tree work?
+What is a suffix tree?
+Explain suffix array
+What is a segment tree?
+How does Fenwick tree work?
+What is a disjoint set?
+Explain union-find
+What is Kruskal's algorithm?
+How does Prim's algorithm work?
+What is Bellman-Ford algorithm?
+Explain Floyd-Warshall algorithm
+What is A* search algorithm?
+How does binary search work?
+What is interpolation search?
+Explain exponential search
+What is jump search?
+How does Fibonacci search work?
+What is ternary search?
+Explain hash collision resolution
+What is separate chaining?
+How does open addressing work?
+What is linear probing?
+Explain quadratic probing
+What is double hashing?
+How does cuckoo hashing work?
+What is consistent hashing?
+Explain rendezvous hashing
+What is locality-sensitive hashing?
+How does MinHash work?
+What is SimHash?
+Explain rolling hash
+What is Rabin-Karp algorithm?
+How does KMP algorithm work?
+What is Boyer-Moore algorithm?
+Explain Aho-Corasick algorithm
+What is suffix automaton?
+How does Z-algorithm work?
+What is Manacher's algorithm?
+Explain longest common subsequence
+What is edit distance?
+How does Levenshtein distance work?
+What is Hamming distance?
+Explain Jaccard similarity
+What is cosine similarity?
+How does matrix multiplication work?
+What is Strassen's algorithm?
+Explain Karatsuba algorithm
+What is FFT algorithm?
+How does convex hull work?
+What is Graham scan?
+Explain Jarvis march
+What is Chan's algorithm?
+How does line intersection work?
+What is sweep line algorithm?
+Explain computational geometry
+What is Voronoi diagram?
+How does Delaunay triangulation work?
+What is binary indexed tree?
+Explain sparse table
+What is sqrt decomposition?
+How does Mo's algorithm work?
+What is heavy-light decomposition?
+Explain centroid decomposition
+What is link-cut tree?
+How does splay tree work?
+What is treap?
 
-# Database questions
+# Database questions (100 prompts)
 What is database normalization?
 Explain SQL vs NoSQL
 How do database indexes work?
@@ -80,8 +261,101 @@ How does database replication work?
 What is eventual consistency?
 Explain CAP theorem
 What is a database transaction?
+What is first normal form?
+Explain second normal form
+What is third normal form?
+How does BCNF work?
+What is fourth normal form?
+Explain fifth normal form?
+What is denormalization?
+How does database partitioning work?
+What is horizontal partitioning?
+Explain vertical partitioning
+What is a composite key?
+How does candidate key work?
+What is a surrogate key?
+Explain natural key
+What is referential integrity?
+How does cascading delete work?
+What is a stored procedure?
+Explain database triggers
+What is a database view?
+How does materialized view work?
+What is a common table expression?
+Explain window functions
+What is a subquery?
+How does correlated subquery work?
+What is query optimization?
+Explain query execution plan
+What is index scan vs table scan?
+How does clustered index work?
+What is non-clustered index?
+Explain covering index
+What is composite index?
+How does full-text index work?
+What is spatial index?
+Explain bitmap index
+What is hash index?
+How does B-tree index work?
+What is database locking?
+Explain pessimistic locking
+What is optimistic locking?
+How does deadlock occur?
+What is lock escalation?
+Explain two-phase locking
+What is multiversion concurrency control?
+How does snapshot isolation work?
+What is read committed?
+Explain repeatable read
+What is serializable isolation?
+How does dirty read occur?
+What is phantom read?
+Explain non-repeatable read
+What is write skew?
+How does database backup work?
+What is incremental backup?
+Explain differential backup
+What is point-in-time recovery?
+How does write-ahead logging work?
+What is redo log?
+Explain undo log
+What is checkpoint in database?
+How does crash recovery work?
+What is database migration?
+Explain schema evolution
+What is zero-downtime migration?
+How does online schema change work?
+What is database connection pooling?
+Explain prepared statements
+What is SQL injection prevention?
+How does parameterized query work?
+What is ORM?
+Explain active record pattern
+What is data mapper pattern
+How does lazy loading work?
+What is eager loading?
+Explain N+1 query problem
+What is database cache?
+How does query cache work?
+What is Redis?
+Explain Memcached
+What is time-series database?
+How does InfluxDB work?
+What is columnar database?
+Explain document database
+What is key-value store?
+How does graph database work?
+What is vector database?
+Explain wide-column store
+What is NewSQL?
+How does distributed SQL work?
+What is distributed transaction?
+Explain two-phase commit
+What is three-phase commit?
+How does Paxos work?
+What is Raft consensus?
 
-# Web development
+# Web development (100 prompts)
 What is server-side rendering?
 Explain progressive web apps
 How does CORS work?
@@ -92,8 +366,97 @@ How does CDN work?
 What is responsive design?
 Explain lazy loading
 What is service worker?
+How does virtual DOM work?
+What is component lifecycle?
+Explain React hooks
+What is state management?
+How does Redux work?
+What is context API?
+Explain prop drilling
+What is render prop?
+How does code splitting work?
+What is tree shaking?
+Explain bundling
+What is Webpack?
+How does hot module replacement work?
+What is transpilation?
+Explain Babel
+What is TypeScript?
+How does JSX work?
+What is shadow DOM?
+Explain web components
+What is custom element?
+How does CSS-in-JS work?
+What is styled components?
+Explain CSS modules
+What is Sass?
+How does Less work?
+What is PostCSS?
+Explain CSS Grid?
+What is Flexbox?
+How does CSS specificity work?
+What is box model?
+Explain positioning
+What is z-index?
+How does float work?
+What is clearfix?
+Explain BEM methodology
+What is CSS preprocessor?
+How does CSS variable work?
+What is CSS animation?
+Explain keyframes
+What is transition?
+How does transform work?
+What is HTTP/2?
+Explain HTTP/3
+What is QUIC protocol?
+How does TLS handshake work?
+What is SSL certificate?
+Explain domain validation
+What is Let's Encrypt?
+How does DNS resolution work?
+What is DNS caching?
+Explain TTL in DNS
+What is DNSSEC?
+How does content negotiation work?
+What is ETags?
+Explain cache control headers
+What is browser caching?
+How does service worker cache work?
+What is IndexedDB?
+Explain localStorage vs sessionStorage
+What is cookie?
+How does HttpOnly work?
+What is SameSite attribute?
+Explain CSRF protection
+What is XSS prevention?
+How does Content Security Policy work?
+What is HSTS?
+Explain clickjacking protection
+What is iframe sandbox?
+How does Subresource Integrity work?
+What is prefetching?
+Explain preloading
+What is preconnect?
+How does resource hint work?
+What is critical CSS?
+Explain above-the-fold content
+What is first contentful paint?
+How does largest contentful paint work?
+What is cumulative layout shift?
+Explain first input delay
+What is time to interactive?
+How does performance budget work?
+What is lighthouse score?
+Explain web vitals
+What is accessibility?
+How does ARIA work?
+What is semantic HTML?
+Explain screen reader?
+What is keyboard navigation?
+How does focus management work?
 
-# Cloud and DevOps
+# Cloud and DevOps (100 prompts)
 What is Infrastructure as Code?
 Explain blue-green deployment
 How does load balancing work?
@@ -104,8 +467,105 @@ How does auto-scaling work?
 What is infrastructure monitoring?
 Explain chaos engineering
 What is gitops?
+How does canary deployment work?
+What is rolling deployment?
+Explain immutable infrastructure
+What is configuration management?
+How does Terraform work?
+What is CloudFormation?
+Explain Ansible
+What is Puppet?
+How does Chef work?
+What is SaltStack?
+Explain container registry
+What is image layering?
+How does Docker compose work?
+What is pod in Kubernetes?
+Explain Kubernetes service?
+What is ingress controller?
+How does Kubernetes networking work?
+What is CNI plugin?
+Explain service mesh
+What is Istio?
+How does Linkerd work?
+What is sidecar pattern?
+Explain ambassador pattern
+What is API gateway?
+How does rate limiting work?
+What is circuit breaker?
+Explain retry logic
+What is backoff strategy?
+How does health check work?
+What is readiness probe?
+Explain liveness probe
+What is startup probe?
+How does horizontal pod autoscaler work?
+What is vertical pod autoscaler?
+Explain cluster autoscaler
+What is node affinity?
+How does pod affinity work?
+What is taint and toleration?
+Explain daemonset
+What is statefulset?
+How does job differ from cronjob?
+What is persistent volume?
+Explain storage class
+What is volume claim?
+How does CSI work?
+What is secrets management?
+Explain HashiCorp Vault
+What is AWS Secrets Manager?
+How does envelope encryption work?
+What is KMS?
+Explain certificate management
+What is cert-manager?
+How does mutual TLS work?
+What is zero trust network?
+Explain network policy
+What is pod security policy?
+How does RBAC work?
+What is service account?
+Explain admission controller
+What is webhook?
+How does operator pattern work?
+What is custom resource definition?
+Explain controller pattern
+What is reconciliation loop?
+How does declarative configuration work?
+What is desired state?
+Explain actual state
+What is convergence?
+How does drift detection work?
+What is disaster recovery?
+Explain RTO and RPO
+What is backup strategy?
+How does snapshot work?
+What is point-in-time recovery?
+Explain geo-redundancy
+What is multi-region deployment?
+How does DNS failover work?
+What is global load balancing?
+Explain anycast routing
+What is edge computing?
+How does edge cache work?
+What is origin server?
+Explain reverse proxy
+What is forward proxy
+How does transparent proxy work?
+What is observability?
+Explain three pillars of observability
+What is distributed tracing?
+How does OpenTelemetry work?
+What is Jaeger?
+Explain Zipkin
+What is span?
+How does trace context work?
+What is metrics collection?
+Explain Prometheus
+What is time series data?
+How does pull vs push model work?
 
-# Security topics
+# Security topics (100 prompts)
 What is SQL injection?
 Explain cross-site scripting
 How does two-factor authentication work?
@@ -116,73 +576,101 @@ How does public key cryptography work?
 What is penetration testing?
 Explain security by design
 What is OAuth vs OpenID?
+How does SAML work?
+What is JWT?
+Explain bearer token
+What is refresh token?
+How does token rotation work?
+What is session management?
+Explain session fixation
+What is session hijacking?
+How does CSRF token work?
+What is double submit cookie?
+Explain SameSite cookie attribute
+What is secure flag?
+How does HttpOnly flag work?
+What is clickjacking?
+Explain X-Frame-Options
+What is CSP frame-ancestors?
+How does HSTS work?
+What is HSTS preload?
+Explain certificate pinning
+What is OCSP stapling?
+How does certificate transparency work?
+What is mTLS?
+Explain client certificate authentication
+What is PKI?
+How does certificate chain work?
+What is root CA?
+Explain intermediate CA
+What is certificate revocation?
+How does CRL work?
+What is OCSP?
+Explain perfect forward secrecy
+What is DHE?
+How does ECDHE work?
+What is AES encryption?
+Explain symmetric vs asymmetric encryption
+What is RSA?
+How does elliptic curve cryptography work?
+What is Ed25519?
+Explain digital signature?
+What is HMAC?
+How does salting work?
+What is password hashing?
+Explain bcrypt
+What is Argon2?
+How does PBKDF2 work?
+What is rainbow table?
+Explain brute force attack
+What is dictionary attack?
+How does credential stuffing work?
+What is password spraying?
+Explain rate limiting for auth
+What is account lockout?
+How does CAPTCHA work?
+What is reCAPTCHA?
+Explain bot detection
+What is behavioral analysis?
+How does anomaly detection work?
+What is SIEM?
+Explain security information management
+What is threat intelligence?
+How does vulnerability scanning work?
+What is CVE?
+Explain CVSS score
+What is zero-day vulnerability?
+How does patch management work?
+What is security baseline?
+Explain hardening?
+What is principle of least privilege?
+How does separation of duties work?
+What is defense in depth?
+Explain security layers
+What is network segmentation?
+How does VLAN work?
+What is DMZ?
+Explain bastion host
+What is jump server?
+How does VPN work?
+What is IPsec?
+Explain WireGuard
+What is OpenVPN?
+How does site-to-site VPN work?
+What is split tunnel?
+Explain full tunnel VPN
+What is firewall?
+How does stateful firewall work?
+What is WAF?
+Explain mod security
+What is IDS vs IPS?
+How does Snort work?
+What is Suricata?
+Explain network packet analysis
+What is Wireshark?
+How does tcpdump work?
 
-# Business and product
-What is product-market fit?
-Explain agile methodology
-How does scrum work?
-What is a minimum viable product?
-Explain user story mapping
-What is customer acquisition cost?
-How does A/B testing work?
-What is growth hacking?
-Explain OKRs
-What is design thinking?
-
-# Science and mathematics
-What is the Fibonacci sequence?
-Explain the Pythagorean theorem
-How does probability work?
-What is calculus used for?
-Explain statistical significance
-What is the scientific method?
-How does evolution work?
-What is entropy?
-Explain the periodic table
-What is string theory?
-
-# General knowledge
-What is climate change?
-Explain renewable energy
-How does the stock market work?
-What is artificial intelligence?
-Explain supply and demand
-What is cryptocurrency?
-How does GPS work?
-What is the greenhouse effect?
-Explain urban planning
-What is biodiversity?
-
-# Short technical queries
-What is Git?
-Explain API
-How does HTTPS work?
-What is JSON?
-Define scalability
-Explain caching
-What is latency?
-How does DNS work?
-What is bandwidth?
-Define throughput?
-
-# Long-form questions
-Can you explain the complete process of how a modern web application handles a user request from the moment they click a button in their browser through all the network layers, server processing, database queries, and back to rendering the response in the browser, including all intermediate steps and technologies involved?
-What are the key differences between monolithic and microservices architectures in terms of deployment, scaling, maintenance, team organization, technology choices, and when would you recommend using one over the other in a real-world enterprise application?
-How would you design a highly available, fault-tolerant distributed system that needs to handle millions of requests per second, ensure data consistency across multiple geographic regions, and maintain sub-100ms latency for end users?
-
-# Edge cases and special prompts
-How does Kubernetes differ from Docker Swarm?
-What are the tradeoffs between SQL and NoSQL databases?
-Explain the difference between authentication and authorization
-How do you optimize database query performance?
-What is the difference between horizontal and vertical scaling?
-Explain eventual consistency in distributed systems
-How does garbage collection work in different programming languages?
-What are the best practices for API versioning?
-Explain the concept of idempotency in REST APIs
-How do you handle database migrations in production?
-
-# Additional diverse topics
+# Machine Learning and AI (100 prompts)
 What is sentiment analysis?
 Explain natural language processing
 How does image recognition work?
@@ -193,10 +681,548 @@ How does batch normalization work?
 What is gradient descent?
 Explain backpropagation
 What is overfitting in machine learning?
+How does underfitting occur?
+What is regularization?
+Explain L1 regularization
+What is L2 regularization?
+How does dropout work?
+What is early stopping?
+Explain data augmentation
+What is feature engineering?
+How does feature scaling work?
+What is normalization vs standardization?
+Explain one-hot encoding
+What is label encoding?
+How does embeddings work?
+What is Word2Vec?
+Explain GloVe
+What is FastText?
+How does BERT work?
+What is GPT?
+Explain transformer architecture
+What is attention mechanism?
+How does self-attention work?
+What is multi-head attention?
+Explain positional encoding
+What is sequence-to-sequence model?
+How does encoder-decoder work?
+What is beam search?
+Explain greedy decoding
+What is temperature in sampling?
+How does top-k sampling work?
+What is nucleus sampling?
+Explain contrastive learning
+What is SimCLR?
+How does MoCo work?
+What is metric learning?
+Explain triplet loss
+What is siamese network?
+How does few-shot learning work?
+What is zero-shot learning?
+Explain meta-learning
+What is MAML?
+How does neural architecture search work?
+What is AutoML?
+Explain hyperparameter tuning
+What is grid search?
+How does random search work?
+What is Bayesian optimization?
+Explain cross-validation
+What is k-fold cross-validation?
+How does stratified sampling work?
+What is train-test split?
+Explain validation set
+What is holdout method?
+How does learning rate scheduling work?
+What is learning rate warmup?
+Explain cyclic learning rate
+What is cosine annealing?
+How does Adam optimizer work?
+What is SGD with momentum?
+Explain RMSprop
+What is AdaGrad?
+How does weight initialization work?
+What is Xavier initialization?
+Explain He initialization
+What is convolutional neural network?
+How does pooling work?
+What is max pooling?
+Explain average pooling?
+What is stride?
+How does padding work?
+What is dilated convolution?
+Explain depthwise separable convolution
+What is residual connection?
+How does skip connection work?
+What is ResNet?
+Explain DenseNet
+What is Inception network?
+How does VGG work?
+What is AlexNet?
+Explain MobileNet
+What is EfficientNet?
+How does object detection work?
+What is YOLO?
+Explain R-CNN
+What is Faster R-CNN?
+How does Mask R-CNN work?
+What is semantic segmentation?
+Explain instance segmentation
+What is U-Net?
+
+# Business and product (50 prompts)
+What is product-market fit?
+Explain agile methodology
+How does scrum work?
+What is a minimum viable product?
+Explain user story mapping
+What is customer acquisition cost?
+How does A/B testing work?
+What is growth hacking?
+Explain OKRs
+What is design thinking?
+How does lean startup work?
+What is pivot?
+Explain product roadmap
+What is sprint planning?
+How does retrospective work?
+What is daily standup?
+Explain backlog grooming
+What is story point estimation?
+How does velocity tracking work?
+What is burn down chart?
+Explain cumulative flow diagram
+What is kanban?
+How does WIP limit work?
+What is cycle time?
+Explain lead time
+What is throughput?
+How does cohort analysis work?
+What is retention rate?
+Explain churn rate
+What is lifetime value?
+How does funnel analysis work?
+What is conversion rate?
+Explain attribution modeling
+What is NPS score?
+How does CSAT work?
+What is customer journey map?
+Explain user persona
+What is empathy map?
+How does value proposition work?
+What is business model canvas?
+Explain unit economics
+What is gross margin?
+How does CAC payback work?
+What is product-led growth?
+Explain freemium model
+What is SaaS metrics?
+How does MRR work?
+What is ARR?
+Explain expansion revenue
+What is net retention?
+
+# Science and mathematics (50 prompts)
+What is the Fibonacci sequence?
+Explain the Pythagorean theorem
+How does probability work?
+What is calculus used for?
+Explain statistical significance
+What is the scientific method?
+How does evolution work?
+What is entropy?
+Explain the periodic table
+What is string theory?
+How does quantum mechanics work?
+What is wave-particle duality?
+Explain Heisenberg uncertainty principle
+What is Schrödinger's equation?
+How does nuclear fusion work?
+What is radioactive decay?
+Explain half-life
+What is carbon dating?
+How does photosynthesis work?
+What is cellular respiration?
+Explain DNA replication
+What is protein synthesis?
+How does mRNA work?
+What is CRISPR?
+Explain gene editing
+What is natural selection?
+How does speciation occur?
+What is phylogenetics?
+Explain taxonomy
+What is binomial nomenclature?
+How does the immune system work?
+What is antibody?
+Explain antigen
+What is vaccination?
+How does herd immunity work?
+What is plate tectonics?
+Explain continental drift
+What is volcanic activity?
+How does earthquake occur?
+What is Richter scale?
+Explain tsunami formation
+What is greenhouse effect?
+How does climate change work?
+What is carbon cycle?
+Explain nitrogen cycle
+What is water cycle?
+How does osmosis work?
+What is diffusion?
+Explain surface tension
+What is viscosity?
+
+# General knowledge and miscellaneous (200+ prompts)
+What is climate change?
+Explain renewable energy
+How does the stock market work?
+What is artificial intelligence?
+Explain supply and demand
+What is cryptocurrency?
+How does GPS work?
+What is the greenhouse effect?
+Explain urban planning
+What is biodiversity?
+How does solar panel work?
+What is wind energy?
+Explain hydroelectric power?
+What is geothermal energy?
+How does nuclear power work?
+What is energy efficiency?
+Explain carbon footprint
+What is sustainability?
+How does recycling work?
+What is circular economy?
+Explain composting
+What is organic farming?
+How does crop rotation work?
+What is permaculture?
+Explain agroforestry
+What is food security?
+How does irrigation work?
+What is drought?
+Explain desertification
+What is soil erosion?
+How does deforestation work?
+What is reforestation?
+Explain afforestation
+What is conservation?
+How does wildlife preservation work?
+What is endangered species?
+Explain extinction
+What is habitat loss?
+How does pollution work?
+What is air quality index?
+Explain water pollution
+What is soil contamination?
+How does noise pollution work?
+What is light pollution?
+Explain thermal pollution
+What is e-waste?
+How does waste management work?
+What is landfill?
+Explain incineration
+What is hazardous waste?
+How does water treatment work?
+What is wastewater treatment?
+Explain desalination
+What is water scarcity?
+How does drought management work?
+What is flood control?
+Explain dam construction
+What is reservoir?
+How does aqueduct work?
+What is irrigation system?
+Explain drip irrigation
+What is sprinkler system?
+How does flood irrigation work?
+What is urban heat island?
+Explain smart city
+What is public transportation?
+How does metro system work?
+What is bus rapid transit?
+Explain bike sharing
+What is pedestrian infrastructure?
+How does traffic management work?
+What is congestion pricing?
+Explain parking policy
+What is mixed-use development?
+How does zoning work?
+What is gentrification?
+Explain affordable housing
+What is social housing?
+How does rent control work?
+What is property tax?
+Explain eminent domain
+What is building code?
+How does fire safety work?
+What is earthquake resistant design?
+Explain structural engineering
+What is foundation design?
+How does load bearing work?
+What is cantilever?
+Explain arch structure
+What is truss?
+How does suspension bridge work?
+What is cable-stayed bridge?
+Explain beam bridge
+What is arch bridge?
+How does tunnel boring work?
+What is cut and cover?
+Explain TBM technology
+What is underground construction?
+How does subway tunnel work?
+What is ventilation system?
+Explain HVAC
+What is air conditioning?
+How does refrigeration work?
+What is heat pump?
+Explain insulation
+What is thermal mass?
+How does passive solar work?
+What is daylighting?
+Explain natural ventilation
+What is stack effect?
+How does wind catcher work?
+What is evaporative cooling?
+Explain radiant heating
+What is underfloor heating?
+How does district heating work?
+What is cogeneration?
+Explain combined heat and power?
+What is energy storage?
+How does battery work?
+What is lithium-ion battery?
+Explain solid-state battery
+What is flow battery?
+How does pumped hydro work?
+What is compressed air storage?
+Explain flywheel energy storage
+What is supercapacitor?
+How does hydrogen storage work?
+What is fuel cell?
+Explain hydrogen economy
+What is electrolysis?
+How does steam reformation work?
+What is carbon capture?
+Explain direct air capture
+What is carbon sequestration?
+How does carbon trading work?
+What is emissions trading?
+Explain cap and trade
+What is carbon tax?
+How does carbon offsetting work?
+What is net zero?
+Explain carbon neutral
+What is climate neutral?
+How does Paris Agreement work?
+What is Kyoto Protocol?
+Explain IPCC report
+What is climate modeling?
+How does weather forecasting work?
+What is meteorology?
+Explain atmospheric science
+What is climatology?
+How does El Niño work?
+What is La Niña?
+Explain monsoon
+What is tropical cyclone?
+How does hurricane form?
+What is tornado?
+Explain thunderstorm
+What is lightning?
+How does hail form?
+What is blizzard?
+Explain ice storm
+What is heat wave?
+How does cold wave work?
+What is jet stream?
+Explain trade winds
+What is westerlies?
+How does polar vortex work?
+What is ozone layer?
+Explain stratosphere
+What is troposphere?
+How does mesosphere work?
+What is thermosphere?
+Explain ionosphere
+What is magnetosphere?
+How does aurora work?
+What is solar wind?
+Explain solar flare
+What is coronal mass ejection?
+How does space weather work?
+What is cosmic radiation?
+Explain Van Allen belt
+What is geomagnetic storm?
+How does satellite orbit work?
+What is geostationary orbit?
+Explain low Earth orbit
+What is polar orbit?
+How does GPS satellite work?
+What is satellite communication?
+Explain satellite internet
+What is space junk?
+How does orbital debris work?
+What is Kessler syndrome?
+Explain space exploration
+What is ISS?
+How does rocket propulsion work?
+What is specific impulse?
+Explain rocket staging
+What is payload capacity?
+How does reusable rocket work?
+What is SpaceX Starship?
+Explain Blue Origin
+What is New Glenn?
+How does SLS work?
+What is Artemis program?
+Explain Mars exploration
+What is Perseverance rover?
+How does Ingenuity helicopter work?
+What is James Webb telescope?
+Explain Hubble telescope
+What is exoplanet?
+How does transit method work?
+What is radial velocity method?
+Explain direct imaging
+What is gravitational microlensing?
+How does SETI work?
+What is Drake equation?
+Explain Fermi paradox
+What is astrobiology?
+How does life detection work?
+What is biosignature?
+Explain technosignature
+What is Dyson sphere?
+How does Kardashev scale work?
+
+# Short technical queries (50 prompts)
+What is Git?
+Explain API
+How does HTTPS work?
+What is JSON?
+Define scalability
+Explain caching
+What is latency?
+How does DNS work?
+What is bandwidth?
+Define throughput?
+What is CLI?
+Explain GUI
+What is IDE?
+How does compiler work?
+What is interpreter?
+Explain JIT compilation
+What is bytecode?
+How does VM work?
+What is container?
+Explain namespace
+What is cgroup?
+How does chroot work?
+What is socket?
+Explain port number
+What is localhost?
+How does loopback work?
+What is subnet mask?
+Explain CIDR notation
+What is MAC address?
+How does ARP work?
+What is NAT?
+Explain port forwarding
+What is DMZ?
+How does proxy work?
+What is SSH?
+Explain RSA key
+What is public key?
+How does private key work?
+What is certificate?
+Explain TLS version?
+What is cipher suite?
+How does handshake work?
+What is session key?
+Explain ephemeral key
+What is nonce?
+How does salt work?
+What is IV?
+Explain block cipher
+What is stream cipher?
+How does ECB mode work?
+
+# Long-form questions (20 prompts)
+Can you explain the complete process of how a modern web application handles a user request from the moment they click a button in their browser through all the network layers, server processing, database queries, and back to rendering the response in the browser, including all intermediate steps and technologies involved?
+What are the key differences between monolithic and microservices architectures in terms of deployment, scaling, maintenance, team organization, technology choices, and when would you recommend using one over the other in a real-world enterprise application?
+How would you design a highly available, fault-tolerant distributed system that needs to handle millions of requests per second, ensure data consistency across multiple geographic regions, and maintain sub-100ms latency for end users?
+Can you provide a comprehensive explanation of how modern machine learning algorithms, particularly deep learning neural networks, are trained using backpropagation and gradient descent, including details about activation functions, loss functions, and optimization techniques?
+I need a detailed breakdown of the differences between supervised learning, unsupervised learning, and reinforcement learning, with examples of real-world applications for each approach and explanations of when to use each method.
+Explain the complete lifecycle of a Kubernetes pod from creation to termination, including all the components involved, networking setup, storage mounting, health checks, and what happens during rolling updates and rollbacks.
+How does a modern compiler transform source code into executable machine code, including all the phases like lexical analysis, parsing, semantic analysis, optimization, and code generation, and what are the key differences between JIT and AOT compilation?
+Describe the entire process of how HTTPS encryption works from the initial TLS handshake, certificate validation, cipher suite negotiation, key exchange, to the actual encrypted data transmission, and explain how perfect forward secrecy is achieved.
+What are all the steps involved in a typical CI/CD pipeline for a containerized microservices application, from code commit to production deployment, including testing, security scanning, image building, orchestration, and monitoring?
+Can you explain how modern garbage collectors work in detail, comparing generational garbage collection, mark-and-sweep, copying collection, and concurrent collection algorithms, and discussing their trade-offs in terms of throughput and latency?
+How does a distributed database like Cassandra or ScyllaDB handle data distribution, replication, consistency, partition tolerance, and failure recovery, and what are the trade-offs between different consistency levels?
+Explain the architecture of a modern search engine including web crawling, indexing, ranking algorithms, query processing, and how techniques like inverted indexes, TF-IDF, and PageRank work together to deliver relevant results?
+What is the complete workflow for containerizing and deploying a multi-tier application with Docker and Kubernetes, including Dockerfile optimization, image layers, registry management, pod configuration, service discovery, and ingress setup?
+How do modern recommendation systems work, covering collaborative filtering, content-based filtering, hybrid approaches, matrix factorization, deep learning models, and how to handle cold start problems and real-time personalization?
+Describe the full stack of technologies and protocols involved in video streaming services like Netflix or YouTube, including video encoding, adaptive bitrate streaming, CDN distribution, DRM, and how buffering and quality adaptation work?
+Explain the architecture and implementation of a real-time chat application, covering WebSocket connections, message queuing, presence detection, typing indicators, read receipts, message persistence, and scaling to millions of concurrent users?
+What are all the security considerations and best practices for building a production web application, including authentication, authorization, data encryption, secure communication, input validation, CSRF/XSS prevention, and security monitoring?
+How does blockchain technology work in detail, covering cryptographic hashing, merkle trees, consensus algorithms like Proof of Work and Proof of Stake, smart contracts, and the trade-offs between decentralization, security, and scalability?
+Explain the complete data science workflow from problem definition, data collection and cleaning, exploratory analysis, feature engineering, model selection and training, hyperparameter tuning, validation, deployment, and monitoring?
+What is involved in building and maintaining a large-scale data pipeline, including data ingestion from multiple sources, ETL processing, data warehousing, real-time streaming, data quality checks, and orchestration with tools like Airflow?
+
+# Edge cases and special prompts (30 prompts)
+How does Kubernetes differ from Docker Swarm?
+What are the tradeoffs between SQL and NoSQL databases?
+Explain the difference between authentication and authorization
+How do you optimize database query performance?
+What is the difference between horizontal and vertical scaling?
+Explain eventual consistency in distributed systems
+How does garbage collection work in different programming languages?
+What are the best practices for API versioning?
+Explain the concept of idempotency in REST APIs
+How do you handle database migrations in production?
+What is the difference between TCP and UDP?
+Explain WebSocket vs HTTP polling
+How does gRPC compare to REST?
+What is the difference between cookies and tokens?
+Explain stateful vs stateless authentication
+How does OAuth differ from JWT?
+What is the difference between encryption and hashing?
+Explain symmetric vs asymmetric encryption
+How does HTTPS prevent man-in-the-middle attacks?
+What is the difference between compiled and interpreted languages?
+Explain static vs dynamic typing
+How does functional programming differ from OOP?
+What is the difference between process and thread?
+Explain concurrency vs parallelism
+How does async/await differ from promises?
+What is the difference between REST and GraphQL?
+Explain client-side vs server-side rendering
+How does SSR differ from SSG?
+What is the difference between Docker and VM?
+Explain container vs serverless?
+
+# Very short prompts for variety
 What?
 Why?
 How?
-
-# Long prompts
-Can you provide a comprehensive explanation of how modern machine learning algorithms, particularly deep learning neural networks, are trained using backpropagation and gradient descent, including details about activation functions, loss functions, and optimization techniques?
-I need a detailed breakdown of the differences between supervised learning, unsupervised learning, and reinforcement learning, with examples of real-world applications for each approach and explanations of when to use each method.
+When?
+Where?
+Who?
+Explain.
+Define.
+Compare.
+Contrast.
+Analyze.
+Evaluate.
+Describe.
+Discuss.
+Summarize.
+List.
+Enumerate.
+Identify.
+Classify.
+Categorize.
