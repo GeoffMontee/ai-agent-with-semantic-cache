@@ -70,15 +70,10 @@ class ScyllaDBCache:
         self.session.default_fetch_size = 5000
         
         # Set connection pool size dynamically after cluster is created
-        # This affects how many connections per host are maintained
-        # Accessing internal state to configure pool sizes
-        for host in self.cluster.metadata.all_hosts():
-            # Get the pool for this host and configure its size
-            pool = self.session.get_pool_state(host)
-            if pool:
-                # Set target sizes for connection pools
-                pool.core_connections = min(pool_size, 32)  # Cap at reasonable limit
-                pool.max_connections = min(pool_size * 2, 64)  # Allow burst capacity
+        # Note: In scylla-driver, connection pool configuration is done via ExecutionProfile
+        # The pool_size and max_requests_per_connection are already set in the profile
+        # Additional per-host configuration would require accessing internal _pools attribute
+        # which is not part of the public API and may vary between driver versions
         
         self.keyspace = keyspace
         self.table = table
