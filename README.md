@@ -6,11 +6,14 @@ A command-line utility that uses Anthropic's Claude AI with optional semantic ca
 
 - 🤖 **Claude AI Integration**: Uses Autogen with Anthropic's Claude models
 - 🔍 **Semantic Caching**: Vector-based caching with ScyllaDB or PostgreSQL pgvector for similar prompt detection
+- ⏱️ **TTL Support**: Configurable time-to-live for cache entries (auto-expiration in ScyllaDB, filtered queries in PostgreSQL)
+- 🎯 **Similarity Threshold**: Enforced cosine similarity threshold to control cache hit quality
 - ⚡ **Fast Retrieval**: Cosine similarity search using HNSW indexes
 - 🎛️ **Flexible Configuration**: Command-line arguments or environment variables
 - 🔧 **Customizable Models**: Configure both Claude and SentenceTransformer models
 - 📊 **Cache Control**: Enable/disable caching on demand
 - 🗄️ **Multiple Backends**: Choose between ScyllaDB Cloud or PostgreSQL pgvector
+- 🧹 **Automatic Cleanup**: PostgreSQL supports manual cleanup of expired entries
 
 ## Project Structure
 
@@ -155,6 +158,24 @@ For detailed documentation, see [scylla-cloud/README.md](scylla-cloud/README.md)
   --scylla-password "your-password"
 ```
 
+### Advanced: TTL and Similarity Configuration
+
+```bash
+# Cache for 2 hours with stricter matching (97% similarity)
+./ai_agent_with_cache.py \
+  --prompt "What is the capital of France?" \
+  --with-cache pgvector \
+  --ttl-seconds 7200 \
+  --similarity-threshold 0.97
+
+# Disable expiration, allow fuzzy matching (85% similarity)
+./ai_agent_with_cache.py \
+  --prompt "What is the capital of France?" \
+  --with-cache scylla \
+  --ttl-seconds 0 \
+  --similarity-threshold 0.85
+```
+
 ### Using Environment Variables
 
 ```bash
@@ -206,6 +227,17 @@ export SCYLLA_PASSWORD="your-password"
   - `l2`: Euclidean (L2) distance
   - `inner_product`: Negative inner product
   - `l1`: Manhattan (L1) distance
+- `--similarity-threshold`: Minimum similarity score for cache hits (default: `0.95`)
+  - Range: 0.0 to 1.0 (higher = more strict matching)
+  - For cosine: 0.95 = ~95% similarity required
+  - Lower values allow more fuzzy matching
+
+### Cache TTL Configuration
+- `--ttl-seconds`: Time-to-live for cache entries in seconds (default: `3600`)
+  - Set to `0` to disable expiration (cache forever)
+  - **ScyllaDB**: Automatic deletion after TTL expires
+  - **PostgreSQL**: Filtered in queries, use cleanup_expired() to remove old entries
+  - Example: `--ttl-seconds 7200` for 2-hour cache
 
 ### AI Model Configuration
 - `--anthropic-api-key`: Anthropic API key (overrides `ANTHROPIC_API_KEY` env var)
@@ -221,6 +253,8 @@ All command-line options have corresponding environment variables:
 - `ANTHROPIC_API_MODEL`: Claude model name
 - `SENTENCE_TRANSFORMER_MODEL`: SentenceTransformer model name
 - `SIMILARITY_FUNCTION`: Vector similarity function
+- `SIMILARITY_THRESHOLD`: Minimum similarity score for cache hits
+- `TTL_SECONDS`: Time-to-live for cache entries in seconds
 
 ### PostgreSQL Configuration
 - `POSTGRES_HOST`: PostgreSQL host
@@ -244,10 +278,16 @@ All command-line options have corresponding environment variables:
 
 1. **Embedding Generation**: When you submit a prompt, the tool generates a 384-dimension vector embedding using SentenceTransformer
 2. **Vector Search**: The embedding is compared against cached embeddings using the selected similarity function (default: cosine distance)
-3. **Cache Hit/Miss**:
-   - **Hit**: If a similar prompt is found, the cached response is returned instantly
-   - **Miss**: The prompt is sent to Claude, and both the embedding and response are cached
-4. **Storage**: Cached entries include the prompt text, embedding vector, response, and timestamp
+3. **Similarity Threshold**: Results are filtered by similarity threshold (default: 0.95 for cosine)
+   - **ScyllaDB**: Calculates cosine similarity in Python after retrieval
+   - **PostgreSQL**: Filters by distance threshold in SQL query
+4. **TTL Filtering**: Expired entries are automatically excluded
+   - **ScyllaDB**: Uses native TTL (automatic deletion)
+   - **PostgreSQL**: Filters by `created_at` timestamp in queries
+5. **Cache Hit/Miss**:
+   - **Hit**: If a similar prompt above threshold is found, the cached response is returned instantly
+   - **Miss**: The prompt is sent to Claude, and both the embedding and response are cached with TTL
+6. **Storage**: Cached entries include the prompt text, embedding vector, response, and timestamp
 
 ## Database Schema
 
@@ -302,16 +342,40 @@ WITH OPTIONS = {'similarity_function': 'COSINE'};
 First run (cache miss):
 ```bash
 ./ai_agent_with_cache.py --prompt "Explain quantum computing"
-# Output: ✗ Cache miss - querying Claude...
+# Output: [-] Cache miss - querying Claude...
 # Response time: ~2-3 seconds
 ```
 
 Second run (cache hit):
 ```bash
 ./ai_agent_with_cache.py --prompt "Explain quantum computing"
-# Output: ✓ Cache hit!
+# Output: [+] Cache hit! (similarity: 1.0000)
 # Response time: ~100-200ms
 ```
+
+### PostgreSQL Cache Cleanup
+
+PostgreSQL uses time-based filtering for TTL, so expired entries remain in the database until cleaned up. To remove expired entries:
+
+```python
+from ai_agent_with_cache import PgVectorCache
+
+# Create cache instance
+cache = PgVectorCache(
+    host="localhost",
+    user="postgres",
+    password="postgres",
+    ttl_seconds=3600  # 1 hour
+)
+
+# Connect and cleanup
+await cache.connect()
+deleted_count = await cache.cleanup_expired()
+print(f"Removed {deleted_count} expired entries")
+await cache.close()
+```
+
+You can schedule this as a periodic task (e.g., cron job) or run manually when needed. ScyllaDB does not need this as it automatically deletes expired entries.
 
 ### Using Different Similarity Functions
 
@@ -359,12 +423,43 @@ Second run (cache hit):
 - **Cache Miss**: Depends on Claude API response time (~2-5 seconds)
 - **Index Type**: Uses HNSW for better query performance
 - **Embedding Dimension**: 384 for default model (all-MiniLM-L6-v2)
+- **TTL Overhead**: Minimal - timestamp filtering in WHERE clause
+- **Cleanup**: Manual via `cleanup_expired()` method (scheduled or on-demand)
 
 ### ScyllaDB
 - **First Request**: Includes model loading time (~1-2 seconds for SentenceTransformer)
 - **Cache Hit**: Typically 100-200ms (depends on ScyllaDB latency)
 - **Cache Miss**: Depends on Claude API response time (~2-5 seconds)
 - **Embedding Dimension**: 384 for default model (all-MiniLM-L6-v2)
+- **TTL Overhead**: None - native TTL with automatic deletion
+- **Cleanup**: Automatic - no maintenance required
+
+## Cache Behavior
+
+### TTL (Time-to-Live)
+- **Default**: 3600 seconds (1 hour)
+- **Disable**: Set `--ttl-seconds 0` to cache forever
+- **ScyllaDB**: Uses native `USING TTL` clause - entries automatically deleted after expiration
+- **PostgreSQL**: Uses time-based filtering in queries - expired entries remain until cleanup
+
+### Similarity Threshold
+- **Default**: 0.95 (95% similarity for cosine)
+- **Range**: 0.0 to 1.0 (higher = stricter matching)
+- **ScyllaDB**: Calculates cosine similarity in Python after retrieval, filters results
+- **PostgreSQL**: Converts to distance threshold, filters in SQL WHERE clause
+- **Cache Output**: Shows similarity score on cache hits: `[+] Cache hit! (similarity: 0.9876)`
+
+### When Cache Hits Occur
+A cached response is returned when:
+1. A semantically similar prompt is found (via vector search)
+2. Similarity meets or exceeds the threshold (default: 0.95)
+3. The entry has not expired (TTL check passes)
+
+### When Cache Misses Occur
+A new Claude query is made when:
+1. No similar prompts found in cache
+2. Similar prompts exist but similarity < threshold
+3. All similar prompts have expired (past TTL)
 
 ## Troubleshooting
 

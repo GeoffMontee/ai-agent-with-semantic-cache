@@ -70,16 +70,32 @@ All configuration follows this precedence order:
   - **No longer imports**: `HostConnectionPool` (cassandra-driver specific, not in scylla-driver)
 - **Initialization**: Sets up keyspace, table, and vector index
   - Configures connection pool with `pool_size` and `max_requests_per_connection` parameters
+  - Configures TTL with `ttl_seconds` parameter (default: 3600 = 1 hour, 0 = no expiration)
   - Uses ExecutionProfile with WhiteListRoundRobinPolicy for load balancing
   - **CRITICAL**: Waits 5 seconds after creating vector index for it to become queryable
   - Cloud deployments may need longer initialization time (10-15 seconds)
   - If vector index queries fail with "ANN ordering by vector requires the column to be indexed", the index isn't ready yet
 - **Key Methods**:
-  - `get_cached_response()`: ANN search for similar prompts
+  - `get_cached_response(embedding, threshold=0.95)`: ANN search for similar prompts
+    - Retrieves embedding from database to calculate cosine similarity
+    - Checks similarity against threshold before returning result
+    - Returns None if similarity < threshold
     - Includes specific error handling for vector index not ready
     - Returns user-friendly message: "Vector index not ready yet. Try again in a few seconds."
-  - `cache_response()`: Store new prompt-response pairs
+  - `cache_response(prompt, embedding, response)`: Store new prompt-response pairs with TTL
+    - Uses `USING TTL` clause when ttl_seconds > 0
+    - ScyllaDB automatically deletes expired entries
   - `close()`: Clean shutdown of database connection
+- **TTL Implementation**:
+  - Uses native ScyllaDB `USING TTL` clause for automatic expiration
+  - Prepared statement includes TTL parameter when configured
+  - More efficient than timestamp-based filtering (automatic cleanup)
+  - Default: 3600 seconds (1 hour), set to 0 for no expiration
+- **Similarity Threshold Checking**:
+  - Retrieves stored embedding from database along with response
+  - Calculates cosine similarity using numpy: `np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))`
+  - Only returns cached response if similarity ≥ threshold (default: 0.95)
+  - Logs similarity score for debugging: "[+] Cache hit! (similarity: 0.9876)"
 - **Vector Index Initialization**: 
   - Wait time increased from 2 to 5 seconds (as of 2026-01)
   - Addresses cloud deployment latency and new keyspace creation
@@ -93,6 +109,7 @@ All configuration follows this precedence order:
   - Benchmark uses dynamic pool sizing (2x max concurrency level) and max_requests_per_connection=2048
 - **Prepared Statement Caching**:
   - INSERT statement prepared once at initialization and cached
+  - Separate prepared statements for with-TTL and without-TTL variants
   - Eliminates re-parsing overhead under high concurrency
   - SELECT queries cannot be prepared (vector ANN limitation)
 
@@ -101,19 +118,44 @@ All configuration follows this precedence order:
 - **Initialization**: Sets up schema, table, and HNSW index with connection pooling
   - Uses AsyncConnectionPool for efficient concurrent operations
   - Configurable pool size (default: 10, min: 2)
-  - Prepared statement caching for both SELECT and INSERT queries
+  - Configurable TTL with `ttl_seconds` parameter (default: 3600 = 1 hour, 0 = no expiration)
+  - No prepared statement caching (uses parameterized queries directly)
 - **Key Methods**:
   - `connect()`: Async connection pool establishment and database setup
-  - `get_cached_response()`: HNSW vector search using prepared statements
-  - `cache_response()`: Store new prompt-response pairs with prepared statements
+  - `get_cached_response(embedding, threshold=0.95)`: HNSW vector search with filtering
+    - Converts similarity threshold to distance threshold (cosine: distance = 1 - similarity)
+    - Filters results by distance threshold in SQL WHERE clause
+    - Filters expired entries using TTL in SQL query (if ttl_seconds > 0)
+    - Returns distance with result for verification
+    - Logs similarity and distance: "[+] Cache hit! (similarity: 0.9876, distance: 0.0124)"
+  - `cache_response(prompt, embedding, response)`: Store new prompt-response pairs
+    - Uses CURRENT_TIMESTAMP for created_at
+    - Logs TTL info in success message
+  - `cleanup_expired()`: Remove expired cache entries (manual cleanup)
+    - Only runs if ttl_seconds > 0
+    - Deletes entries where created_at < NOW() - INTERVAL '{ttl_seconds} seconds'
+    - Returns count of deleted entries
+    - Call manually or schedule as periodic task
   - `close()`: Clean async shutdown of connection pool
+- **TTL Implementation**:
+  - Uses timestamp-based filtering in SELECT queries
+  - Adds WHERE clause: `created_at > NOW() - INTERVAL '{ttl_seconds} seconds'`
+  - Entries remain in database until manually cleaned up
+  - `cleanup_expired()` method for removing old entries
+  - More flexible than auto-expiration but requires manual cleanup
+- **Similarity Threshold Checking**:
+  - Converts similarity threshold to distance threshold in query
+  - For cosine: distance_threshold = 1.0 - similarity (approximate)
+  - Filters in SQL: `WHERE embedding <=> %s::vector < %s`
+  - Returns both distance and response from query
+  - More efficient than post-query filtering (database-level filtering)
 - **Vector Type Casting**: All vector parameters must use `::vector` casting in SQL queries
   - Required for distance operators: `<->` (L2), `<=>` (cosine), `<#>` (inner product), `<+>` (L1)
   - Failure to cast causes "operator does not exist: vector <=> double precision[]" errors
 - **Connection Pool Configuration**:
   - Default pool_size: 10 connections (configurable)
   - Min size: 2, Max size: pool_size parameter
-  - Prepared statements cached at instance level
+  - No prepared statement caching (parameterized queries more flexible for dynamic TTL filters)
 - **Important**: All methods except `__init__` are async and must be awaited
 
 ### `async_main()` Function
@@ -135,10 +177,21 @@ All configuration follows this precedence order:
 
 ### Similarity Functions
 - **Cosine**: Default, best for normalized embeddings (matches ScyllaDB behavior)
+  - Threshold of 0.95 similarity = 0.05 distance
+  - Lower distance = more similar
 - **L2**: Euclidean distance
+  - Lower values = more similar
+  - Threshold used directly as max distance
 - **Inner Product**: Negative inner product (pgvector uses `<#>`)
+  - Lower values = more similar
+  - Threshold used directly as max distance
 - **L1**: Manhattan distance
+  - Lower values = more similar
+  - Threshold used directly as max distance
 - Configurable via `--similarity-function` argument
+- **Threshold Enforcement**: Now actively enforced in both backends
+  - ScyllaDB: Post-query filtering with cosine similarity calculation
+  - PostgreSQL: Pre-filtering in SQL WHERE clause with distance threshold
 
 ### Cache Key Generation
 - Primary key: SHA256 hash of the prompt text

@@ -23,7 +23,7 @@ from pgvector.psycopg import register_vector_async
 
 class ScyllaDBCache:
     def __init__(self, contact_points, username, password, keyspace="llm_cache", table="llm_responses",
-                 pool_size=10, max_requests_per_connection=1024):
+                 pool_size=10, max_requests_per_connection=1024, ttl_seconds=3600):
         """
         Initialize ScyllaDB connection with vector search support.
         
@@ -35,6 +35,7 @@ class ScyllaDBCache:
             table: Table name
             pool_size: Number of connections per host (default: 10, increase for high concurrency)
             max_requests_per_connection: Max concurrent requests per connection (default: 1024)
+            ttl_seconds: Time-to-live for cache entries in seconds (default: 3600 = 1 hour, 0 = no expiration)
         """
         auth_provider = PlainTextAuthProvider(username=username, password=password)
         
@@ -80,6 +81,7 @@ class ScyllaDBCache:
         self.embedding_dim = 384  # Dimension for all-MiniLM-L6-v2
         self.pool_size = pool_size
         self.max_requests_per_connection = max_requests_per_connection
+        self.ttl_seconds = ttl_seconds
         
         # Prepared statement cache (initialized after database setup)
         self._select_stmt = None
@@ -134,11 +136,18 @@ class ScyllaDBCache:
         # Note: Vector ANN queries cannot be prepared in ScyllaDB as they require
         # the vector to be embedded in the query. We prepare the INSERT statement only.
         
-        # Prepare INSERT statement (used in cache_response)
-        self._insert_stmt = self.session.prepare(f"""
-            INSERT INTO {self.keyspace}.{self.table} (prompt_hash, prompt, embedding, response, created_at)
-            VALUES (?, ?, ?, ?, ?)
-        """)
+        # Prepare INSERT statement with TTL (used in cache_response)
+        if self.ttl_seconds > 0:
+            self._insert_stmt = self.session.prepare(f"""
+                INSERT INTO {self.keyspace}.{self.table} (prompt_hash, prompt, embedding, response, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                USING TTL ?
+            """)
+        else:
+            self._insert_stmt = self.session.prepare(f"""
+                INSERT INTO {self.keyspace}.{self.table} (prompt_hash, prompt, embedding, response, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            """)
 
     def get_cached_response(self, embedding, threshold=0.95):
         """
@@ -146,7 +155,7 @@ class ScyllaDBCache:
         
         Args:
             embedding: Vector embedding of the prompt
-            threshold: Similarity threshold (0-1) for cache hit
+            threshold: Similarity threshold (0-1) for cache hit (cosine similarity)
         
         Returns:
             Cached response or None
@@ -154,9 +163,9 @@ class ScyllaDBCache:
         # Convert numpy array to list for CQL
         embedding_list = embedding.tolist() if isinstance(embedding, np.ndarray) else embedding
         
-        # Query using ANN vector search
+        # Query using ANN vector search - retrieve embedding to check similarity
         query = f"""
-            SELECT prompt, response
+            SELECT prompt, response, embedding
             FROM {self.keyspace}.{self.table}
             ORDER BY embedding ANN OF {embedding_list}
             LIMIT 1
@@ -167,10 +176,21 @@ class ScyllaDBCache:
             row = result.one()
             
             if row:
-                # Since we're using ANN with COSINE similarity, the closest result is most similar
-                # For exact match detection, we could check if prompt matches exactly
-                print(f"[+] Cache hit!")
-                return row.response
+                # Calculate cosine similarity to check against threshold
+                stored_embedding = np.array(row.embedding)
+                query_embedding = np.array(embedding)
+                
+                # Cosine similarity: dot product of normalized vectors
+                similarity = np.dot(query_embedding, stored_embedding) / (
+                    np.linalg.norm(query_embedding) * np.linalg.norm(stored_embedding)
+                )
+                
+                if similarity >= threshold:
+                    print(f"[+] Cache hit! (similarity: {similarity:.4f})")
+                    return row.response
+                else:
+                    print(f"[-] Similarity too low ({similarity:.4f} < {threshold})")
+                    return None
         except Exception as e:
             # Check if this is a vector index error
             if "ANN ordering by vector requires the column to be indexed" in str(e):
@@ -181,7 +201,7 @@ class ScyllaDBCache:
         return None
 
     def cache_response(self, prompt, embedding, response):
-        """Store prompt, embedding, and response in cache."""
+        """Store prompt, embedding, and response in cache with TTL."""
         # Generate hash for primary key
         prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()
         
@@ -190,11 +210,18 @@ class ScyllaDBCache:
         
         # Use cached prepared statement for better performance
         try:
-            self.session.execute(
-                self._insert_stmt,
-                (prompt_hash, prompt, embedding_list, response, datetime.now())
-            )
-            print("[+] Response cached successfully")
+            if self.ttl_seconds > 0:
+                self.session.execute(
+                    self._insert_stmt,
+                    (prompt_hash, prompt, embedding_list, response, datetime.now(), self.ttl_seconds)
+                )
+                print(f"[+] Response cached successfully (TTL: {self.ttl_seconds}s)")
+            else:
+                self.session.execute(
+                    self._insert_stmt,
+                    (prompt_hash, prompt, embedding_list, response, datetime.now())
+                )
+                print("[+] Response cached successfully (no expiration)")
         except Exception as e:
             print(f"Cache storage error: {e}")
 
@@ -206,8 +233,12 @@ class ScyllaDBCache:
 class PgVectorCache:
     def __init__(self, host="localhost", port=5432, user="postgres", password="", 
                  database="postgres", schema="llm_cache", table="llm_responses",
-                 similarity_function="cosine", pool_size=10):
-        """Initialize PostgreSQL connection with pgvector support."""
+                 similarity_function="cosine", pool_size=10, ttl_seconds=3600):
+        """Initialize PostgreSQL connection with pgvector support.
+        
+        Args:
+            ttl_seconds: Time-to-live for cache entries in seconds (default: 3600 = 1 hour, 0 = no expiration)
+        """
         self.host = host
         self.port = port
         self.user = user
@@ -218,6 +249,7 @@ class PgVectorCache:
         self.similarity_function = similarity_function
         self.embedding_dim = 384  # Dimension for all-MiniLM-L6-v2
         self.pool_size = pool_size
+        self.ttl_seconds = ttl_seconds
         self.conn_pool = None
         
         # Map similarity functions to pgvector operators and index ops
@@ -297,7 +329,9 @@ class PgVectorCache:
         
         Args:
             embedding: Vector embedding of the prompt
-            threshold: Similarity threshold (0-1) for cache hit (not used with HNSW ANN)
+            threshold: Similarity threshold (0-1) for cache hit
+                      For cosine: 0.95 similarity = 0.05 distance
+                      For l2: lower is more similar
         
         Returns:
             Cached response or None
@@ -306,23 +340,46 @@ class PgVectorCache:
             # Get operator for similarity function
             operator = self.similarity_ops[self.similarity_function]["operator"]
             
+            # Convert similarity threshold to distance threshold
+            # For cosine: distance = 1 - similarity (approximate)
+            # For l2/inner_product/l1: use threshold directly as max distance
+            if self.similarity_function == "cosine":
+                distance_threshold = 1.0 - threshold
+            else:
+                distance_threshold = threshold
+            
             # Use connection from pool
             async with self.conn_pool.connection() as conn:
                 async with conn.cursor() as cur:
-                    # Use parameterized query with vector casting
+                    # Build query with TTL filter and distance threshold
+                    ttl_filter = ""
+                    if self.ttl_seconds > 0:
+                        ttl_filter = f"AND created_at > NOW() - INTERVAL '{self.ttl_seconds} seconds'"
+                    
+                    # Use parameterized query with vector casting and threshold
                     await cur.execute(
                         f"""
-                        SELECT prompt, response
+                        SELECT prompt, response, embedding {operator} %s::vector AS distance
                         FROM {self.schema}.{self.table}
-                        ORDER BY embedding {operator} %s::vector
+                        WHERE embedding {operator} %s::vector < %s
+                        {ttl_filter}
+                        ORDER BY distance
                         LIMIT 1
                         """,
-                        (embedding.tolist() if isinstance(embedding, np.ndarray) else embedding,)
+                        (embedding.tolist() if isinstance(embedding, np.ndarray) else embedding,
+                         embedding.tolist() if isinstance(embedding, np.ndarray) else embedding,
+                         distance_threshold)
                     )
                     row = await cur.fetchone()
                     
                     if row:
-                        print(f"[+] Cache hit!")
+                        distance = row[2]
+                        # Convert distance back to similarity for display (cosine only)
+                        if self.similarity_function == "cosine":
+                            similarity = 1.0 - distance
+                            print(f"[+] Cache hit! (similarity: {similarity:.4f}, distance: {distance:.4f})")
+                        else:
+                            print(f"[+] Cache hit! (distance: {distance:.4f})")
                         return row[1]  # Return response
         except Exception as e:
             print(f"Cache lookup error: {e}")
@@ -348,9 +405,33 @@ class PgVectorCache:
                         (prompt_hash, prompt, embedding.tolist() if isinstance(embedding, np.ndarray) else embedding, response)
                     )
                     await conn.commit()
-            print("[+] Response cached successfully")
+            if self.ttl_seconds > 0:
+                print(f"[+] Response cached successfully (TTL: {self.ttl_seconds}s)")
+            else:
+                print("[+] Response cached successfully (no expiration)")
         except Exception as e:
             print(f"Cache storage error: {e}")
+    
+    async def cleanup_expired(self):
+        """Remove expired cache entries (only if TTL is enabled)."""
+        if self.ttl_seconds <= 0:
+            return  # No TTL configured, nothing to clean up
+        
+        try:
+            async with self.conn_pool.connection() as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute(
+                        f"""
+                        DELETE FROM {self.schema}.{self.table}
+                        WHERE created_at < NOW() - INTERVAL '{self.ttl_seconds} seconds'
+                        """
+                    )
+                    deleted_count = cur.rowcount
+                    await conn.commit()
+                    if deleted_count > 0:
+                        print(f"[+] Cleaned up {deleted_count} expired cache entries")
+        except Exception as e:
+            print(f"Cache cleanup error: {e}")
     
     async def close(self):
         """Close the database connection pool."""
