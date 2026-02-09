@@ -933,8 +933,8 @@ def main():
     create_parser.add_argument(
         "--vector-node-type",
         type=str,
-        default="i4i.large",
-        help="Instance type for vector search nodes (default: i4i.large)"
+        default="r7g.medium",
+        help="Instance type for vector search nodes (default: r7g.medium)"
     )
     create_parser.add_argument(
         "--vector-single-rack",

@@ -237,7 +237,7 @@ The `--debug` flag provides comprehensive logging including:
 | `--node-type` | Instance type for ScyllaDB nodes | `i4i.large` |
 | `--disable-vector-search` | Disable vector search (enabled by default) | `False` |
 | `--vector-node-count` | Number of vector search nodes | `1` |
-| `--vector-node-type` | Instance type for vector nodes (AWS: r7g.medium, GCP: n4-highmem-2) | `i4i.large` |
+| `--vector-node-type` | Instance type for vector nodes (AWS: r7g.medium, GCP: n4-highmem-2) | `r7g.medium` |
 | `--vector-single-rack` | Enable single rack for vector search | `False` |
 | `--broadcast-type` | Broadcast type: `PUBLIC` or `PRIVATE` | `PUBLIC` |
 | `--cidr-block` | VPC CIDR block | `192.168.1.0/24` |
