@@ -109,7 +109,6 @@ export SCYLLA_CLOUD_API_KEY="your-cloud-api-key"
 # Create a cluster with vector search
 ./deploy-scylla-cloud.py create \
   --name my-vector-cache \
-  --enable-vector-search \
   --cloud-provider AWS \
   --region us-east-1
 
