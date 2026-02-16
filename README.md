@@ -15,7 +15,7 @@ A command-line utility that uses Anthropic's Claude AI with optional semantic ca
   - [Basic Usage (No Caching)](#basic-usage-no-caching)
   - [With PostgreSQL pgvector Caching](#with-postgresql-pgvector-caching)
   - [With ScyllaDB Caching](#with-scylladb-caching)
-  - [Advanced: TTL and Similarity Configuration](#advanced-ttl-and-similarity-configuration)
+  - [Advanced: Similarity and Model Configuration](#advanced-similarity-and-model-configuration)
   - [Using Environment Variables](#using-environment-variables)
 - [Command-Line Options](#command-line-options)
   - [Required](#required)
@@ -23,7 +23,7 @@ A command-line utility that uses Anthropic's Claude AI with optional semantic ca
   - [PostgreSQL Configuration](#postgresql-configuration)
   - [ScyllaDB Configuration](#scylladb-configuration)
   - [Vector Similarity Configuration](#vector-similarity-configuration)
-  - [Cache TTL Configuration](#cache-ttl-configuration)
+  - [Cache TTL Behavior (Current CLI)](#cache-ttl-behavior-current-cli)
   - [AI Model Configuration](#ai-model-configuration)
 - [Environment Variables](#environment-variables)
   - [General Environment Variables](#general-environment-variables)
@@ -70,8 +70,8 @@ A command-line utility that uses Anthropic's Claude AI with optional semantic ca
 
 - 🤖 **Claude AI Integration**: Uses Autogen with Anthropic's Claude models
 - 🔍 **Semantic Caching**: Vector-based caching with ScyllaDB or PostgreSQL pgvector for similar prompt detection
-- ⏱️ **TTL Support**: Configurable time-to-live for cache entries (auto-expiration in ScyllaDB, filtered queries in PostgreSQL)
-- 🎯 **Similarity Threshold**: Enforced cosine similarity threshold to control cache hit quality
+- ⏱️ **TTL Support**: 1-hour default TTL (auto-expiration in ScyllaDB, query-time filtering in PostgreSQL)
+- 🎯 **Similarity Threshold**: Enforced 0.95 default threshold to control cache hit quality
 - ⚡ **Fast Retrieval**: Cosine similarity search using HNSW indexes
 - 🎛️ **Flexible Configuration**: Command-line arguments or environment variables
 - 🔧 **Customizable Models**: Configure both Claude and SentenceTransformer models
@@ -221,23 +221,24 @@ For detailed documentation, see [scylla-cloud/README.md](scylla-cloud/README.md)
   --scylla-password "your-password"
 ```
 
-### Advanced: TTL and Similarity Configuration
+### Advanced: Similarity and Model Configuration
 
 ```bash
-# Cache for 2 hours with stricter matching (97% similarity)
+# Use L2 distance with pgvector
 ./ai_agent_with_cache.py \
-  --prompt "What is the capital of France?" \
+  --prompt "Explain machine learning" \
   --with-cache pgvector \
-  --ttl-seconds 7200 \
-  --similarity-threshold 0.97
+  --similarity-function l2
 
-# Disable expiration, allow fuzzy matching (85% similarity)
+# Use custom Claude and embedding models
 ./ai_agent_with_cache.py \
-  --prompt "What is the capital of France?" \
+  --prompt "Summarize this article" \
   --with-cache scylla \
-  --ttl-seconds 0 \
-  --similarity-threshold 0.85
+  --anthropic-api-model "claude-opus-4-20250514" \
+  --sentence-transformer-model "paraphrase-MiniLM-L6-v2"
 ```
+
+**Note**: The current CLI uses a fixed cache TTL of `3600` seconds and a fixed similarity threshold of `0.95`.
 
 ### Using Environment Variables
 
@@ -285,22 +286,18 @@ export SCYLLA_PASSWORD="your-password"
 - `--scylla-table`: Table name (default: `llm_responses`)
 
 ### Vector Similarity Configuration
-- `--similarity-function {cosine,l2,inner_product,l1}`: Vector similarity function (default: `cosine`)
+- `--similarity-function {cosine,l2,inner_product,l1}`: Vector similarity function for PostgreSQL pgvector (default: `cosine`)
   - `cosine`: Cosine distance (default, best for normalized embeddings)
   - `l2`: Euclidean (L2) distance
   - `inner_product`: Negative inner product
   - `l1`: Manhattan (L1) distance
-- `--similarity-threshold`: Minimum similarity score for cache hits (default: `0.95`)
-  - Range: 0.0 to 1.0 (higher = more strict matching)
-  - For cosine: 0.95 = ~95% similarity required
-  - Lower values allow more fuzzy matching
+- **ScyllaDB note**: ScyllaDB currently uses cosine similarity for ANN index and threshold checks.
 
-### Cache TTL Configuration
-- `--ttl-seconds`: Time-to-live for cache entries in seconds (default: `3600`)
-  - Set to `0` to disable expiration (cache forever)
-  - **ScyllaDB**: Automatic deletion after TTL expires
-  - **PostgreSQL**: Filtered in queries, use cleanup_expired() to remove old entries
-  - Example: `--ttl-seconds 7200` for 2-hour cache
+### Cache TTL Behavior (Current CLI)
+- **Default TTL**: `3600` seconds (1 hour)
+- **ScyllaDB**: Automatic deletion after TTL expires (`USING TTL`)
+- **PostgreSQL**: Time-based filtering in queries; expired rows can be removed with `cleanup_expired()`
+- **Current limitation**: TTL is not exposed as a CLI flag or environment variable.
 
 ### AI Model Configuration
 - `--anthropic-api-key`: Anthropic API key (overrides `ANTHROPIC_API_KEY` env var)
@@ -309,15 +306,13 @@ export SCYLLA_PASSWORD="your-password"
 
 ## Environment Variables
 
-All command-line options have corresponding environment variables:
+The following environment variables are supported by the CLI:
 
 ### General Environment Variables
 - `ANTHROPIC_API_KEY`: Anthropic API key
 - `ANTHROPIC_API_MODEL`: Claude model name
 - `SENTENCE_TRANSFORMER_MODEL`: SentenceTransformer model name
-- `SIMILARITY_FUNCTION`: Vector similarity function
-- `SIMILARITY_THRESHOLD`: Minimum similarity score for cache hits
-- `TTL_SECONDS`: Time-to-live for cache entries in seconds
+- `SIMILARITY_FUNCTION`: Vector similarity function for PostgreSQL pgvector
 
 ### PostgreSQL Configuration Environment Variables
 - `POSTGRES_HOST`: PostgreSQL host
@@ -335,16 +330,18 @@ All command-line options have corresponding environment variables:
 - `SCYLLA_KEYSPACE`: ScyllaDB keyspace
 - `SCYLLA_TABLE`: ScyllaDB table
 
-**Note**: Command-line arguments always take precedence over environment variables.
+**Note**: Command-line arguments always take precedence over environment variables. Similarity threshold and TTL are currently fixed in the CLI.
 
 ## How Semantic Caching Works
 
 1. **Embedding Generation**: When you submit a prompt, the tool generates a 384-dimension vector embedding using SentenceTransformer
-2. **Vector Search**: The embedding is compared against cached embeddings using the selected similarity function (default: cosine distance)
-3. **Similarity Threshold**: Results are filtered by similarity threshold (default: 0.95 for cosine)
+2. **Vector Search**:
+   - **ScyllaDB**: Uses ANN vector search with cosine similarity
+   - **PostgreSQL**: Uses the selected similarity function (`--similarity-function` / `SIMILARITY_FUNCTION`)
+3. **Similarity Threshold**: Results are filtered by a fixed threshold of `0.95`
    - **ScyllaDB**: Calculates cosine similarity in Python after retrieval
-   - **PostgreSQL**: Filters by distance threshold in SQL query
-4. **TTL Filtering**: Expired entries are automatically excluded
+   - **PostgreSQL**: Converts threshold to distance and filters in SQL
+4. **TTL Filtering**: Expired entries are excluded using a fixed TTL of `3600` seconds
    - **ScyllaDB**: Uses native TTL (automatic deletion)
    - **PostgreSQL**: Filters by `created_at` timestamp in queries
 5. **Cache Hit/Miss**:
@@ -519,7 +516,7 @@ The current capital of France is Paris.
 
 This triggered a cache miss, because the similarity (``0.9438``) was lower than the threshold (``0.95``).
 
-9. Ask Anthropic and the cache about the capital of France right now, which is a another different question with a similar meaning:
+9. Ask Anthropic and the cache about the capital of France right now, which is another different question with a similar meaning:
 
 ```bash
 $ ./ai_agent_with_cache.py \
@@ -586,8 +583,7 @@ cache = PgVectorCache(
 
 # Connect and cleanup
 await cache.connect()
-deleted_count = await cache.cleanup_expired()
-print(f"Removed {deleted_count} expired entries")
+await cache.cleanup_expired()  # Logs how many rows were removed (if any)
 await cache.close()
 ```
 
@@ -654,13 +650,13 @@ You can schedule this as a periodic task (e.g., cron job) or run manually when n
 
 ### TTL (Time-to-Live)
 - **Default**: 3600 seconds (1 hour)
-- **Disable**: Set `--ttl-seconds 0` to cache forever
+- **Current CLI behavior**: TTL is fixed at 3600 seconds
 - **ScyllaDB**: Uses native `USING TTL` clause - entries automatically deleted after expiration
 - **PostgreSQL**: Uses time-based filtering in queries - expired entries remain until cleanup
 
 ### Similarity Threshold
 - **Default**: 0.95 (95% similarity for cosine)
-- **Range**: 0.0 to 1.0 (higher = stricter matching)
+- **Current CLI behavior**: Threshold is fixed at 0.95
 - **ScyllaDB**: Calculates cosine similarity in Python after retrieval, filters results
 - **PostgreSQL**: Converts to distance threshold, filters in SQL WHERE clause
 - **Cache Output**: Shows similarity score on cache hits: `[+] Cache hit! (similarity: 0.9876)`
@@ -815,7 +811,7 @@ Each test reports:
 
 ### Customizing Test Prompts
 
-Edit [benchmark_prompts.txt](benchmark_prompts.txt) to customize the prompts used in benchmarks. The file contains 1,189 prompts organized into categories:
+Edit [benchmark_prompts.txt](benchmark_prompts.txt) to customize the prompts used in benchmarks. The file contains 1,189 prompts (excluding comments and blank lines) organized into categories:
 - Base prompts (for cache population)
 - Semantically similar variants (for similarity testing)
 - Programming concepts, data structures, algorithms (200 prompts)
@@ -856,7 +852,7 @@ Performance comparison (local PostgreSQL vs ScyllaDB Cloud):
 
 **PostgreSQL**: HNSW indexes are created automatically and are immediately usable. For large datasets, you may want to create indexes after loading initial data for better performance. The PostgreSQL cache includes:
 - AsyncConnectionPool with configurable size (default: 10 connections)
-- Prepared statement caching for both SELECT and INSERT operations
+- Parameterized SQL queries for lookup and insert operations
 - Connection pooling for efficient concurrent operations
 
 ## Contributing
