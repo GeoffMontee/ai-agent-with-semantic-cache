@@ -26,9 +26,9 @@ A command-line utility that uses Anthropic's Claude AI with optional semantic ca
   - [Cache TTL Configuration](#cache-ttl-configuration)
   - [AI Model Configuration](#ai-model-configuration)
 - [Environment Variables](#environment-variables)
-  - [General](#general)
-  - [PostgreSQL Configuration](#postgresql-configuration-1)
-  - [ScyllaDB Configuration](#scylladb-configuration-1)
+  - [General Environment Variables](#general-environment-variables)
+  - [PostgreSQL Configuration Environment Variables](#postgresql-configuration-environment-variables)
+  - [ScyllaDB Configuration Environment Variables](#scylladb-configuration-environment-variables)
 - [How Semantic Caching Works](#how-semantic-caching-works)
 - [Database Schema](#database-schema)
   - [PostgreSQL pgvector](#postgresql-pgvector)
@@ -311,7 +311,7 @@ export SCYLLA_PASSWORD="your-password"
 
 All command-line options have corresponding environment variables:
 
-### General
+### General Environment Variables
 - `ANTHROPIC_API_KEY`: Anthropic API key
 - `ANTHROPIC_API_MODEL`: Claude model name
 - `SENTENCE_TRANSFORMER_MODEL`: SentenceTransformer model name
@@ -319,7 +319,7 @@ All command-line options have corresponding environment variables:
 - `SIMILARITY_THRESHOLD`: Minimum similarity score for cache hits
 - `TTL_SECONDS`: Time-to-live for cache entries in seconds
 
-### PostgreSQL Configuration
+### PostgreSQL Configuration Environment Variables
 - `POSTGRES_HOST`: PostgreSQL host
 - `POSTGRES_PORT`: PostgreSQL port
 - `POSTGRES_USER`: PostgreSQL username
@@ -328,7 +328,7 @@ All command-line options have corresponding environment variables:
 - `POSTGRES_SCHEMA`: PostgreSQL schema name
 - `POSTGRES_TABLE`: PostgreSQL table name
 
-### ScyllaDB Configuration
+### ScyllaDB Configuration Environment Variables
 - `SCYLLA_CONTACT_POINTS`: ScyllaDB hosts
 - `SCYLLA_USER`: ScyllaDB username
 - `SCYLLA_PASSWORD`: ScyllaDB password
