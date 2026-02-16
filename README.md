@@ -333,6 +333,159 @@ ON llm_cache.llm_responses(embedding)
 USING 'vector_index'
 WITH OPTIONS = {'similarity_function': 'COSINE'};
 ```
+## Demo
+
+### ScyllaDB Cloud
+
+The following demo shows how the semantic cache works with ScyllaDB Cloud:
+
+1. Create the cluster in ScyllaDB Cloud:
+
+```bash
+$ export SCYLLA_CLOUD_API_KEY="your-api-key"
+$ ./scylla-cloud/deploy-scylla-cloud.py create \
+   --name my-vector-cache \
+   --allowed-ips "MY_IP"
+```
+
+2. Wait for the cluster to become available:
+
+```bash
+$ ./scylla-cloud/deploy-scylla-cloud.py status \
+   --name my-vector-cache
+```
+
+3. Wait for the vector search nodes to become available.
+
+The vector search nodes are provisioned after the cluster itself is ready, 
+so wait a little longer for them to be ready.
+
+4. Obtain connection information:
+
+```bash
+$ ./scylla-cloud/deploy-scylla-cloud.py info \
+   --name my-vector-cache
+```
+
+5. Setup some environment variables:
+
+```bash
+export ANTHROPIC_API_KEY="your-api-key"
+
+# For ScyllaDB:
+export SCYLLA_CONTACT_POINTS="your-host.com"
+export SCYLLA_USER="your-username"
+export SCYLLA_PASSWORD="your-password"
+
+# Suppresses some unnecessary messages
+export TOKENIZERS_PARALLELISM=false
+```
+
+6. Ask Anthropic and the cache about the capital of France:
+
+```bash
+$ ./ai_agent_with_cache.py \
+  --prompt "What is the capital of France?" \
+  --with-cache scylla
+Loading SentenceTransformer model...
+Generating embedding for prompt...
+Embedding dimension: 384
+Connecting to ScyllaDB...
+Waiting for vector index to initialize...
+
+Checking cache...
+[-] Cache miss - querying Claude...
+[+] Response cached successfully (TTL: 3600s)
+
+Claude's response:
+--------------------------------------------------------------------------------
+The capital of France is Paris.
+--------------------------------------------------------------------------------
+```
+
+This triggered a cache miss, because it was the first time that we asked the question.
+
+7. Ask Anthropic and the cache the same question again:
+
+```bash
+$ ./ai_agent_with_cache.py \
+  --prompt "What is the capital of France?" \
+  --with-cache scylla
+Loading SentenceTransformer model...
+Generating embedding for prompt...
+Embedding dimension: 384
+Connecting to ScyllaDB...
+Waiting for vector index to initialize...
+
+Checking cache...
+[+] Cache hit! (similarity: 1.0000)
+
+[Using cached response]
+
+Claude's response:
+--------------------------------------------------------------------------------
+The capital of France is Paris.
+--------------------------------------------------------------------------------
+```
+
+This triggered a cache hit, because it was an exact match.
+
+8. Ask Anthropic and the cache about the current capital of France, which is a different question with a similar meaning:
+
+```bash
+$ ./ai_agent_with_cache.py \
+  --prompt "What is the current capital of France?" \
+  --with-cache scylla
+Loading SentenceTransformer model...
+Generating embedding for prompt...
+Embedding dimension: 384
+Connecting to ScyllaDB...
+Waiting for vector index to initialize...
+
+Checking cache...
+[-] Similarity too low (0.9438 < 0.95)
+[-] Cache miss - querying Claude...
+[+] Response cached successfully (TTL: 3600s)
+
+Claude's response:
+--------------------------------------------------------------------------------
+The current capital of France is Paris.
+--------------------------------------------------------------------------------
+```
+
+This triggered a cache miss, because the similarity (``0.9438``) was lower than the threshold (``0.95``).
+
+9. Ask Anthropic and the cache about the capital of France right now, which is a another different question with a similar meaning:
+
+```bash
+$ ./ai_agent_with_cache.py \
+  --prompt "What is the capital of France right now?" \
+  --with-cache scylla
+Loading SentenceTransformer model...
+Generating embedding for prompt...
+Embedding dimension: 384
+Connecting to ScyllaDB...
+Waiting for vector index to initialize...
+
+Checking cache...
+[+] Cache hit! (similarity: 0.9570)
+
+[Using cached response]
+
+Claude's response:
+--------------------------------------------------------------------------------
+The current capital of France is Paris.
+--------------------------------------------------------------------------------
+```
+
+This triggered a cache hit, because the similarity (``0.9570``) was higher than the threshold (``0.95``).
+
+10. Cleanup cluster:
+
+```bash
+$ ./scylla-cloud/deploy-scylla-cloud.py destroy \
+   --name my-vector-cache
+```
 
 ## Examples
 
@@ -648,7 +801,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-[Specify your license here]
+MIT license.
 
 ## Acknowledgments
 
