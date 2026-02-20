@@ -34,7 +34,8 @@ A command-line utility that uses Anthropic's Claude AI with optional semantic ca
   - [PostgreSQL pgvector](#postgresql-pgvector)
   - [ScyllaDB](#scylladb)
 - [Demo](#demo)
-  - [ScyllaDB Cloud](#scylladb-cloud)
+  - [PostgreSQL Demo](#postgresql-demo)
+  - [ScyllaDB Demo](#scylladb-demo)
 - [Examples](#examples)
   - [Comparing Cache Performance](#comparing-cache-performance)
   - [PostgreSQL Cache Cleanup](#postgresql-cache-cleanup)
@@ -396,9 +397,144 @@ WITH OPTIONS = {'similarity_function': 'COSINE'};
 ```
 ## Demo
 
-### ScyllaDB Cloud
+### PostgreSQL Demo
 
-The following demo shows how the semantic cache works with ScyllaDB Cloud:
+The following demo shows how the semantic cache works with PostgreSQL and pgVector:
+
+1. Create the database in Docker:
+
+```bash
+$ ./postgres-pgvector-docker/deploy-pgvector-docker.py start \
+    --name pgvector-local
+```
+
+2. Setup some environment variables:
+
+```bash
+export ANTHROPIC_API_KEY="your-api-key"
+
+# For PostgreSQL:
+export POSTGRES_HOST="localhost"
+export POSTGRES_PORT="5432"
+export POSTGRES_USER="postgres"
+export POSTGRES_PASSWORD="postgres"
+
+# Suppresses some unnecessary messages
+export TOKENIZERS_PARALLELISM=false
+```
+
+3. Ask Anthropic and the cache about the capital of France:
+
+```bash
+$ ./ai_agent_with_cache.py \
+  --prompt "What is the capital of France?" \
+  --with-cache pgvector
+Loading SentenceTransformer model...
+Generating embedding for prompt...
+Embedding dimension: 384
+Connecting to PostgreSQL...
+
+Checking cache...
+[-] Cache miss - querying Claude...
+[+] Response cached successfully (TTL: 3600s)
+
+Claude's response:
+--------------------------------------------------------------------------------
+The capital of France is Paris.
+--------------------------------------------------------------------------------
+```
+
+This triggered a cache miss, because it was the first time that we asked the question.
+
+4. Ask Anthropic and the cache the same question again:
+
+```bash
+$ ./ai_agent_with_cache.py \
+  --prompt "What is the capital of France?" \
+  --with-cache pgvector
+Loading SentenceTransformer model...
+Generating embedding for prompt...
+Embedding dimension: 384
+Connecting to PostgreSQL...
+
+Checking cache...
+[+] Cache hit! (similarity: 1.0000, distance: 0.0000)
+
+[Using cached response]
+
+Claude's response:
+--------------------------------------------------------------------------------
+The capital of France is Paris.
+--------------------------------------------------------------------------------
+```
+
+This triggered a cache hit, because it was an exact match.
+
+5. Ask Anthropic and the cache about the current capital of France, which is a different question with a similar meaning:
+
+```bash
+$ ./ai_agent_with_cache.py \
+  --prompt "What is the current capital of France?" \
+  --with-cache pgvector
+Loading SentenceTransformer model...
+Generating embedding for prompt...
+Embedding dimension: 384
+Connecting to PostgreSQL...
+
+Checking cache...
+[-] Cache miss - querying Claude...
+[+] Response cached successfully (TTL: 3600s)
+
+Claude's response:
+--------------------------------------------------------------------------------
+The current capital of France is Paris.
+--------------------------------------------------------------------------------
+```
+
+This triggered a cache miss, because the similarity (``0.9438``) was lower than the threshold (``0.95``).
+
+6. Ask Anthropic and the cache about the capital of France right now, which is another different question with a similar meaning:
+
+```bash
+$ ./ai_agent_with_cache.py \
+  --prompt "What is the capital of France right now?" \
+  --with-cache pgvector
+Loading SentenceTransformer model...
+Generating embedding for prompt...
+Embedding dimension: 384
+Connecting to PostgreSQL...
+
+Checking cache...
+[+] Cache hit! (similarity: 0.9570, distance: 0.0430)
+
+[Using cached response]
+
+Claude's response:
+--------------------------------------------------------------------------------
+The current capital of France is Paris.
+--------------------------------------------------------------------------------
+```
+
+This triggered a cache hit, because the similarity (``0.9570``) was higher than the threshold (``0.95``).
+
+7. Stop database container:
+
+```bash
+$ ./postgres-pgvector-docker/deploy-pgvector-docker.py stop \
+    --name pgvector-local
+```
+
+8. Cleanup database container:
+
+```bash
+$ ./postgres-pgvector-docker/deploy-pgvector-docker.py destroy \
+    --name pgvector-local \
+    --remove-volumes
+```
+
+### ScyllaDB Demo
+
+The following demo shows how the semantic cache works with ScyllaDB Cloud with Vector Search:
 
 1. Create the cluster in ScyllaDB Cloud:
 
